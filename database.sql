@@ -1,9 +1,3 @@
--- =============================================================================
--- SIKKIM GAMING PLATFORM - COMPLETE DATABASE SCHEMA & INITIAL DATA
--- Database Engine: MySQL / MariaDB (InnoDB)
--- Character Set: utf8mb4 / Collation: utf8mb4_unicode_ci
--- =============================================================================
-
 
 
 
