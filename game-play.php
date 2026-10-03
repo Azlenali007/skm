@@ -13,6 +13,11 @@ $pdo = getDB();
 
 $slug = trim($_GET['slug'] ?? 'win-go-1m');
 
+if ($slug === 'colour-game') {
+    header("Location: /colour-game.php");
+    exit;
+}
+
 // Lookup Game in MySQL
 $gameStmt = $pdo->prepare("
     SELECT g.*, c.name as category_name

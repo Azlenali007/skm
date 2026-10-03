@@ -143,6 +143,11 @@ CREATE TABLE `game_rounds` (
   `start_time` DATETIME NOT NULL,
   `end_time` DATETIME NOT NULL,
   `status` ENUM('active', 'calculating', 'completed') NOT NULL DEFAULT 'active',
+  `result_mode` ENUM('auto', 'manual') NOT NULL DEFAULT 'auto',
+  `manual_result` VARCHAR(20) DEFAULT NULL,
+  `result_status` ENUM('pending', 'locked', 'published') NOT NULL DEFAULT 'pending',
+  `manually_set_at` DATETIME DEFAULT NULL,
+  `manually_set_by` INT DEFAULT NULL,
   `result_number` INT DEFAULT NULL,
   `result_color` VARCHAR(20) DEFAULT NULL,
   `result_size` VARCHAR(10) DEFAULT NULL,
@@ -266,11 +271,12 @@ INSERT INTO `categories` (`id`, `name`, `slug`, `icon`, `display_order`, `status
 ON DUPLICATE KEY UPDATE `name`=`name`;
 
 -- Seed Recommended Games
-INSERT INTO `games` (`id`, `category_id`, `name`, `slug`, `image`, `description`, `status`, `display_order`, `is_recommended`) VALUES
-(1, 2, 'Win Go 1Min', 'win-go-1m', '/assets/images/game-wingo.png', 'Classic Sikkim 1-Minute Color and Number Prediction round with guaranteed payout.', 'active', 1, 1),
-(2, 3, 'Aviator Blast', 'aviator-blast', '/assets/images/game-aviator.png', 'Real-time multiplier aircraft game with instant cash out.', 'active', 2, 1),
-(3, 6, 'Cricket Premier', 'cricket-premier', '/assets/images/game-cricket.png', 'Predict match overs, wickets and boundary streaks with premier multipliers.', 'active', 3, 1),
-(4, 1, 'Royal 777 Deluxe', 'royal-777', '/assets/images/game-slots777.png', 'Triple lucky reels, wild scatters, and high jackpot multiplier rounds.', 'active', 4, 1)
+INSERT INTO `games` (`id`, `category_id`, `name`, `slug`, `image`, `description`, `status`, `display_order`, `is_recommended`, `config_json`) VALUES
+(1, 2, 'Colour Game', 'colour-game', '/assets/images/game-wingo.png', 'Real-time Sikkim Colour Prediction game with Red, Green and Violet outcomes, sequential rounds, and instant payout.', 'active', 1, 1, '{\"options\":[{\"key\":\"red\",\"name\":\"RED\",\"multiplier\":2.00,\"color\":\"#ef4444\"},{\"key\":\"green\",\"name\":\"GREEN\",\"multiplier\":2.00,\"color\":\"#10b981\"},{\"key\":\"violet\",\"name\":\"VIOLET\",\"multiplier\":4.50,\"color\":\"#8b5cf6\"}],\"round_duration\":45,\"lock_before_end\":5}'),
+(2, 2, 'Win Go 1Min', 'win-go-1m', '/assets/images/game-wingo.png', 'Classic Sikkim 1-Minute Color and Number Prediction round with guaranteed payout.', 'active', 2, 1, NULL),
+(3, 3, 'Aviator Blast', 'aviator-blast', '/assets/images/game-aviator.png', 'Real-time multiplier aircraft game with instant cash out.', 'active', 3, 1, NULL),
+(4, 6, 'Cricket Premier', 'cricket-premier', '/assets/images/game-cricket.png', 'Predict match overs, wickets and boundary streaks with premier multipliers.', 'active', 4, 1, NULL),
+(5, 1, 'Royal 777 Deluxe', 'royal-777', '/assets/images/game-slots777.png', 'Triple lucky reels, wild scatters, and high jackpot multiplier rounds.', 'active', 5, 1, NULL)
 ON DUPLICATE KEY UPDATE `name`=`name`;
 
 -- Seed Promotional Banners
@@ -286,7 +292,9 @@ INSERT INTO `announcements` (`id`, `content`, `status`, `priority`) VALUES
 (2, 'Notice: Daily maintenance window is strictly handled seamlessly with zero downtime. Enjoy non-stop gaming!', 'active', 5)
 ON DUPLICATE KEY UPDATE `content`=`content`;
 
--- Seed Initial Active Round
-INSERT INTO `game_rounds` (`id`, `round_number`, `game_slug`, `start_time`, `end_time`, `status`, `result_published`)
-VALUES (1, 321001, 'win-go-1m', NOW(), DATE_ADD(NOW(), INTERVAL 60 SECOND), 'active', 0)
+-- Seed Initial Active Rounds
+INSERT INTO `game_rounds` (`id`, `round_number`, `game_slug`, `start_time`, `end_time`, `status`, `result_mode`, `result_published`)
+VALUES 
+(1, 321001, 'win-go-1m', NOW(), DATE_ADD(NOW(), INTERVAL 60 SECOND), 'active', 'auto', 0),
+(2, 321, 'colour-game', NOW(), DATE_ADD(NOW(), INTERVAL 45 SECOND), 'active', 'auto', 0)
 ON DUPLICATE KEY UPDATE `game_slug`=`game_slug`;
