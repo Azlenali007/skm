@@ -4,10 +4,9 @@
 -- Character Set: utf8mb4 / Collation: utf8mb4_unicode_ci
 -- =============================================================================
 
-CREATE DATABASE IF NOT EXISTS `sikkim_game` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `sikkim_game`;
 
-SET FOREIGN_KEY_CHECKS = 0;
+
+
 
 -- -----------------------------------------------------------------------------
 -- 1. Table structure for `users`
