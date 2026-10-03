@@ -226,7 +226,11 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     <div class="p-3 bg-white flex items-center justify-between gap-2 border-t border-slate-100 mt-auto">
                         <span class="text-[11px] text-slate-500">Fast 1-Min</span>
-                        <?php $playUrl = ($game['slug'] === 'colour-game') ? '/colour-game.php' : '/game-play.php?slug=' . urlencode($game['slug']); ?>
+                        <?php 
+                        $playUrl = '/game-play.php?slug=' . urlencode($game['slug']);
+                        if ($game['slug'] === 'colour-game') $playUrl = '/colour-game.php';
+                        if ($game['slug'] === 'crash-game' || $game['slug'] === 'aviator-blast') $playUrl = '/crash-game.php';
+                        ?>
                         <a href="<?= $playUrl ?>" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition">
                             Play
                         </a>

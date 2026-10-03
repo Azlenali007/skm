@@ -18,6 +18,11 @@ if ($slug === 'colour-game') {
     exit;
 }
 
+if ($slug === 'crash-game' || $slug === 'aviator-blast') {
+    header("Location: /crash-game.php");
+    exit;
+}
+
 // Lookup Game in MySQL
 $gameStmt = $pdo->prepare("
     SELECT g.*, c.name as category_name

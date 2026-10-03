@@ -133,6 +133,63 @@ $pageTitle = "System Overview";
     </div>
 </div>
 
+<!-- Live Game Control Arenas (Direct Access) -->
+<div class="w-full mb-8">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-black text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
+            <span class="w-2 h-4 bg-blue-600 rounded-full inline-block"></span>
+            Real-Time Game Control Desks
+        </h3>
+        <span class="text-xs text-slate-400">Live monitoring & manual result controls</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <!-- Crash Game Desk -->
+        <div class="p-5 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/70 via-white to-blue-50/30 shadow-xs flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-600 text-white">NEW</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </div>
+                <h4 class="font-black text-slate-900 text-base mb-1">Crash Game (Aviator)</h4>
+                <p class="text-xs text-slate-500 mb-3">Ascending multiplier curve, live telemetry, manual multiplier presets, and force crash overrides.</p>
+            </div>
+            <a href="/admin/crash-game.php" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl text-center shadow-xs transition flex items-center justify-center gap-1">
+                <span>Manage Crash Game &rarr;</span>
+            </a>
+        </div>
+
+        <!-- Colour Game Desk -->
+        <div class="p-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 shadow-xs flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-600 text-white">ACTIVE</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </div>
+                <h4 class="font-black text-slate-900 text-base mb-1">Colour Game (0-9 & Colors)</h4>
+                <p class="text-xs text-slate-500 mb-3">Red, Green, Violet and Numbers 0–9 live wagering breakdown, manual outcome picker and round audit.</p>
+            </div>
+            <a href="/admin/colour-game.php" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl text-center shadow-xs transition flex items-center justify-center gap-1">
+                <span>Manage Colour Game &rarr;</span>
+            </a>
+        </div>
+
+        <!-- Win Go 1Min Desk -->
+        <div class="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-200 text-slate-700">RNG</span>
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                </div>
+                <h4 class="font-black text-slate-900 text-base mb-1">Win Go 1Min</h4>
+                <p class="text-xs text-slate-500 mb-3">1-minute interval classic lottery rounds and automated database settlements.</p>
+            </div>
+            <a href="/admin/rounds.php" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl text-center transition flex items-center justify-center gap-1">
+                <span>Manage Rounds &rarr;</span>
+            </a>
+        </div>
+    </div>
+</div>
+
 <!-- Tables Grid: Recent Users & Recent Transactions -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Recent Users -->

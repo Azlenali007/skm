@@ -189,6 +189,66 @@ CREATE TABLE `game_bets` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
+-- 9b. Table structure for `crash_rounds`
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `crash_rounds`;
+CREATE TABLE `crash_rounds` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `round_number` BIGINT NOT NULL UNIQUE,
+  `status` ENUM('waiting', 'running', 'crashed', 'completed') NOT NULL DEFAULT 'waiting',
+  `start_time` DATETIME NOT NULL,
+  `flight_start_time` DATETIME NOT NULL,
+  `crash_time` DATETIME NOT NULL,
+  `crash_multiplier` DECIMAL(8, 2) NOT NULL DEFAULT 1.00,
+  `result_mode` ENUM('auto', 'manual') NOT NULL DEFAULT 'auto',
+  `manual_multiplier` DECIMAL(8, 2) DEFAULT NULL,
+  `result_published` TINYINT(1) NOT NULL DEFAULT 0,
+  `total_bets_amount` DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+  `total_payout_amount` DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `completed_at` DATETIME DEFAULT NULL,
+  INDEX `idx_crash_rounds_rn` (`round_number`),
+  INDEX `idx_crash_rounds_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- 9c. Table structure for `crash_bets`
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `crash_bets`;
+CREATE TABLE `crash_bets` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `round_id` INT NOT NULL,
+  `amount` DECIMAL(15, 2) NOT NULL,
+  `auto_cashout` DECIMAL(8, 2) DEFAULT NULL,
+  `cashed_out_at` DATETIME DEFAULT NULL,
+  `cashed_out_multiplier` DECIMAL(8, 2) DEFAULT NULL,
+  `win_amount` DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+  `status` ENUM('pending', 'cashed_out', 'crashed', 'cancelled') NOT NULL DEFAULT 'pending',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`round_id`) REFERENCES `crash_rounds`(`id`) ON DELETE CASCADE,
+  INDEX `idx_crash_bets_user` (`user_id`),
+  INDEX `idx_crash_bets_round` (`round_id`),
+  INDEX `idx_crash_bets_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- 9d. Table structure for `crash_config`
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `crash_config`;
+CREATE TABLE `crash_config` (
+  `id` INT PRIMARY KEY,
+  `waiting_seconds` INT NOT NULL DEFAULT 6,
+  `min_bet` DECIMAL(15, 2) NOT NULL DEFAULT 10.00,
+  `max_bet` DECIMAL(15, 2) NOT NULL DEFAULT 20000.00,
+  `house_edge` DECIMAL(5, 2) NOT NULL DEFAULT 3.00,
+  `default_mode` ENUM('auto', 'manual') NOT NULL DEFAULT 'auto',
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
 -- 10. Table structure for `notifications`
 -- -----------------------------------------------------------------------------
 DROP TABLE IF EXISTS `notifications`;
@@ -278,8 +338,8 @@ ON DUPLICATE KEY UPDATE `name`=`name`;
 -- Seed Recommended Games
 INSERT INTO `games` (`id`, `category_id`, `name`, `slug`, `image`, `description`, `status`, `display_order`, `is_recommended`, `config_json`) VALUES
 (1, 2, 'Colour Game', 'colour-game', '/assets/images/game-wingo.png', 'Real-time Sikkim Colour Prediction game with Red, Green and Violet outcomes, sequential rounds, and instant payout.', 'active', 1, 1, '{\"options\":[{\"key\":\"red\",\"name\":\"RED\",\"multiplier\":2.00,\"color\":\"#ef4444\"},{\"key\":\"green\",\"name\":\"GREEN\",\"multiplier\":2.00,\"color\":\"#10b981\"},{\"key\":\"violet\",\"name\":\"VIOLET\",\"multiplier\":4.50,\"color\":\"#8b5cf6\"}],\"round_duration\":45,\"lock_before_end\":5}'),
-(2, 2, 'Win Go 1Min', 'win-go-1m', '/assets/images/game-wingo.png', 'Classic Sikkim 1-Minute Color and Number Prediction round with guaranteed payout.', 'active', 2, 1, NULL),
-(3, 3, 'Aviator Blast', 'aviator-blast', '/assets/images/game-aviator.png', 'Real-time multiplier aircraft game with instant cash out.', 'active', 3, 1, NULL),
+(2, 3, 'Crash Game', 'crash-game', '/assets/images/game-aviator.png', 'Real-time ascending multiplier flight arena. Cash out before the aircraft crashes.', 'active', 2, 1, '{\"waiting_seconds\":6,\"min_bet\":10.00,\"max_bet\":20000.00}'),
+(3, 2, 'Win Go 1Min', 'win-go-1m', '/assets/images/game-wingo.png', 'Classic Sikkim 1-Minute Color and Number Prediction round with guaranteed payout.', 'active', 3, 1, NULL),
 (4, 6, 'Cricket Premier', 'cricket-premier', '/assets/images/game-cricket.png', 'Predict match overs, wickets and boundary streaks with premier multipliers.', 'active', 4, 1, NULL),
 (5, 1, 'Royal 777 Deluxe', 'royal-777', '/assets/images/game-slots777.png', 'Triple lucky reels, wild scatters, and high jackpot multiplier rounds.', 'active', 5, 1, NULL)
 ON DUPLICATE KEY UPDATE `name`=`name`;
