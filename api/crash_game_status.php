@@ -138,5 +138,6 @@ echo json_encode([
     ],
     'my_history' => $myHistory,
     'recent_crashes' => $recentList,
-    'server_time' => date('Y-m-d H:i:s')
+    'server_time' => gmdate('Y-m-d\TH:i:s\Z'),
+    'server_time_ts' => time()
 ]);
