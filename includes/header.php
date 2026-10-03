@@ -121,4 +121,4 @@ $currentUser = getCurrentUser();
     <?php endif; ?>
 
     <!-- Main Container -->
-    <main class="flex-1 w-full max-w-6xl mx-auto px-4 py-4 sm:py-6">
+    <main class="flex-1 w-full max-w-6xl mx-auto px-4 py-4 sm:py-6 pb-24 sm:pb-28">

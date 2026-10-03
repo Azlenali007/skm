@@ -6,8 +6,8 @@
 ?>
     </main>
 
-    <!-- Footer (Strictly Normal Document Flow) -->
-    <footer class="w-full bg-white border-t border-slate-200 mt-auto py-8 text-slate-600 text-xs">
+    <!-- Footer -->
+    <footer class="w-full bg-white border-t border-slate-200 mt-auto pt-8 pb-24 sm:pb-28 text-slate-600 text-xs">
         <div class="max-w-6xl mx-auto px-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
                 <div>

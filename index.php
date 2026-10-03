@@ -255,4 +255,7 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </section>
 
+<!-- Bottom 4-Option Navigation Bar -->
+<?php require_once __DIR__ . '/includes/user_nav.php'; ?>
+
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
