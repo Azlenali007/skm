@@ -113,15 +113,18 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
         </div>
 
         <!-- 3. Animated Supersonic Flight Arena Canvas -->
-        <div class="w-full flex-1 min-h-[170px] sm:min-h-[210px] max-h-[230px] rounded-2xl relative overflow-hidden shadow-md border border-slate-800 bg-gradient-to-b from-slate-950 via-slate-900 to-blue-950 shrink-0 flex flex-col justify-between p-3">
+        <div id="flightArena" class="w-full flex-1 min-h-[170px] sm:min-h-[210px] max-h-[230px] rounded-2xl relative overflow-hidden shadow-md border border-slate-800 bg-gradient-to-b from-slate-950 via-slate-900 to-blue-950 shrink-0 flex flex-col justify-between p-3 select-none">
             
+            <!-- Flight Path Canvas: Visible smooth upward curved path with glowing fill -->
+            <canvas id="flightCanvas" class="absolute inset-0 w-full h-full pointer-events-none z-0"></canvas>
+
             <!-- Radar grid lines background -->
-            <div class="absolute inset-0 opacity-15 pointer-events-none" style="background-image: radial-gradient(#38bdf8 1px, transparent 1px); background-size: 24px 24px;"></div>
+            <div class="absolute inset-0 opacity-15 pointer-events-none z-0" style="background-image: radial-gradient(#38bdf8 1px, transparent 1px); background-size: 24px 24px;"></div>
             
             <!-- Top Arena Info Row: Round Number & Current Phase Badge -->
-            <div class="relative z-10 flex items-center justify-between text-xs">
+            <div class="relative z-20 flex items-center justify-between text-xs pointer-events-none">
                 <div class="flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="liveStatusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <span id="displayRoundNumber" class="font-mono font-black text-white text-[11px] sm:text-xs tracking-wider">
                         ROUND #<?= e($activeRound['round_number']) ?>
                     </span>
@@ -132,9 +135,9 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
             </div>
 
             <!-- Central Multiplier & Aircraft Display Area -->
-            <div class="relative z-10 my-auto text-center flex flex-col items-center justify-center">
+            <div class="relative z-20 my-auto text-center flex flex-col items-center justify-center pointer-events-none">
                 <!-- Big Live Multiplier Display -->
-                <div id="multiplierText" class="font-mono font-black text-4xl sm:text-5xl tracking-tighter text-white drop-shadow-[0_4px_12px_rgba(59,130,246,0.5)] transition-all duration-75">
+                <div id="multiplierText" class="font-mono font-black text-4xl sm:text-5xl tracking-tighter text-white drop-shadow-[0_4px_12px_rgba(59,130,246,0.5)] transition-colors duration-150">
                     1.00x
                 </div>
 
@@ -144,21 +147,21 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
                 </div>
             </div>
 
-            <!-- Animated Aircraft Graphic with curved flight path -->
-            <div id="aircraftContainer" class="absolute bottom-6 left-6 z-10 transition-all duration-300 ease-out pointer-events-none">
-                <div class="rocket-flight relative flex items-center justify-center">
+            <!-- Exactly ONE Single Animated Aircraft Element (Positioned along the flight path) -->
+            <div id="aircraftContainer" class="absolute top-0 left-0 z-10 pointer-events-none will-change-transform" style="transform: translate3d(0, 0, 0); opacity: 1;">
+                <div class="relative flex items-center justify-center">
                     <!-- Jet SVG Icon -->
-                    <svg id="aircraftSvg" class="w-10 h-10 sm:w-12 sm:h-12 text-rose-500 transform -rotate-12 filter drop-shadow-[0_2px_8px_rgba(244,63,94,0.6)]" viewBox="0 0 24 24" fill="currentColor">
+                    <svg id="aircraftSvg" class="w-10 h-10 sm:w-12 sm:h-12 text-rose-500 filter drop-shadow-[0_2px_10px_rgba(244,63,94,0.7)] transition-colors duration-150" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
                     </svg>
                     <!-- Jet Exhaust Flame -->
-                    <div id="exhaustGlow" class="absolute -bottom-1 -left-2 w-3 h-3 rounded-full bg-amber-400 blur-xs animate-ping"></div>
+                    <div id="exhaustGlow" class="absolute -bottom-1 -left-2 w-3.5 h-3.5 rounded-full bg-gradient-to-r from-amber-400 to-rose-500 blur-[1px] animate-pulse hidden"></div>
                 </div>
             </div>
 
             <!-- Bottom Flight Horizon Indicator -->
-            <div class="relative z-10 flex items-center justify-between text-[10px] text-slate-400 border-t border-white/10 pt-1">
-                <span>Speed: <strong class="text-slate-200 font-mono">1.0X</strong></span>
+            <div class="relative z-20 flex items-center justify-between text-[10px] text-slate-400 border-t border-white/10 pt-1 pointer-events-none">
+                <span>Flight Arena: <strong class="text-slate-200 font-mono">Real-Time</strong></span>
                 <span class="text-slate-400">Provably Fair Sequential</span>
             </div>
         </div>
@@ -233,7 +236,15 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
         let activeRound = null;
         let userActiveBet = null;
         let pollTimer = null;
-        let localMultiplierTimer = null;
+        let animFrameId = null;
+        let flightCanvas = null;
+        let flightCtx = null;
+        let arenaWidth = 360;
+        let arenaHeight = 200;
+        let currentPhase = 'waiting';
+        let currentRoundNumber = null;
+        let crashTimestamp = 0;
+        let crashCoords = { x: 30, y: 170, tiltAngle: 15 };
         let currentTab = 'my';
         let latestMyHistory = [];
         let latestRecentCrashes = [];
@@ -476,7 +487,263 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
             ribbon.innerHTML = html;
         }
 
-        // Live Server Polling & Flight Synchronization
+        // Canvas Resizing for Responsive Mobile/Tablet/Desktop Arena
+        function resizeCanvas() {
+            const arena = document.getElementById('flightArena');
+            if (!arena || !flightCanvas || !flightCtx) return;
+            const rect = arena.getBoundingClientRect();
+            arenaWidth = Math.max(280, rect.width);
+            arenaHeight = Math.max(160, rect.height);
+            const dpr = window.devicePixelRatio || 1;
+            flightCanvas.width = Math.floor(arenaWidth * dpr);
+            flightCanvas.height = Math.floor(arenaHeight * dpr);
+            flightCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        // Mathematical Flight Coordinate Model: Strictly Continuous & Proportional
+        function getFlightCoordinates(multiplier, elapsedSeconds, W, H) {
+            const x0 = W * 0.08;
+            const y0 = H * 0.84;
+            const maxX = W * 0.78;
+            const minY = H * 0.22;
+
+            const m = Math.max(1.0, multiplier);
+            const logM = Math.log(m);
+
+            // Smooth logarithmic progression that steadily climbs
+            const p = 1 - 1 / (1 + 0.38 * logM + 0.09 * Math.sqrt(m - 1));
+
+            // Continuous forward & upward glide for high multipliers so it never freezes
+            const continuousDrift = 1 - Math.exp(-0.018 * elapsedSeconds);
+            const waveX = Math.sin(elapsedSeconds * 2.2) * (W * 0.005);
+            const waveY = Math.cos(elapsedSeconds * 2.5) * (H * 0.008);
+
+            const x = x0 + (maxX - x0) * p + (W * 0.08) * continuousDrift + waveX;
+            const y = y0 - (y0 - minY) * p - (H * 0.06) * continuousDrift + waveY;
+
+            // Calculate flight path tangent angle
+            const prevM = Math.max(1.0, m - 0.03);
+            const prevLogM = Math.log(prevM);
+            const prevP = 1 - 1 / (1 + 0.38 * prevLogM + 0.09 * Math.sqrt(prevM - 1));
+            const pxPrev = x0 + (maxX - x0) * prevP + (W * 0.08) * (1 - Math.exp(-0.018 * Math.max(0, elapsedSeconds - 0.08)));
+            const pyPrev = y0 - (y0 - minY) * prevP - (H * 0.06) * (1 - Math.exp(-0.018 * Math.max(0, elapsedSeconds - 0.08)));
+
+            const dx = Math.max(0.001, x - pxPrev);
+            const dy = y - pyPrev;
+            const angleRad = Math.atan2(dy, dx);
+            const angleDeg = angleRad * (180 / Math.PI);
+            const tiltAngle = angleDeg + 90;
+
+            return { x, y, x0, y0, tiltAngle, p };
+        }
+
+        // Draw Smooth Ascending Flight Curve & Translucent Gradient Fill
+        function drawFlightPath(m, elapsed, W, H) {
+            if (!flightCtx) return null;
+            flightCtx.clearRect(0, 0, W, H);
+
+            const currentCoord = getFlightCoordinates(m, elapsed, W, H);
+            const x0 = currentCoord.x0;
+            const y0 = currentCoord.y0;
+            const x = currentCoord.x;
+            const y = currentCoord.y;
+
+            // 1. Subtle dotted runway guideline
+            flightCtx.save();
+            flightCtx.beginPath();
+            flightCtx.moveTo(x0 - 15, y0);
+            flightCtx.lineTo(W * 0.95, y0);
+            flightCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            flightCtx.setLineDash([4, 4]);
+            flightCtx.lineWidth = 1;
+            flightCtx.stroke();
+            flightCtx.restore();
+
+            // 2. Smooth quadratic curve control point
+            const cx = x0 + (x - x0) * 0.52;
+            const cy = y0;
+
+            // 3. Translucent Gradient Fill Under the Curve
+            flightCtx.save();
+            flightCtx.beginPath();
+            flightCtx.moveTo(x0, y0);
+            flightCtx.quadraticCurveTo(cx, cy, x, y);
+            flightCtx.lineTo(x, y0);
+            flightCtx.lineTo(x0, y0);
+            flightCtx.closePath();
+
+            const grad = flightCtx.createLinearGradient(0, y, 0, y0);
+            grad.addColorStop(0, 'rgba(244, 63, 94, 0.32)');
+            grad.addColorStop(0.55, 'rgba(244, 63, 94, 0.12)');
+            grad.addColorStop(1, 'rgba(244, 63, 94, 0.00)');
+            flightCtx.fillStyle = grad;
+            flightCtx.fill();
+            flightCtx.restore();
+
+            // 4. Glowing Rose/Red Trajectory Stroke
+            flightCtx.save();
+            flightCtx.beginPath();
+            flightCtx.moveTo(x0, y0);
+            flightCtx.quadraticCurveTo(cx, cy, x, y);
+            flightCtx.strokeStyle = '#f43f5e';
+            flightCtx.lineWidth = 3.5;
+            flightCtx.lineCap = 'round';
+            flightCtx.lineJoin = 'round';
+            flightCtx.shadowColor = 'rgba(244, 63, 94, 0.85)';
+            flightCtx.shadowBlur = 10;
+            flightCtx.stroke();
+            flightCtx.restore();
+
+            return currentCoord;
+        }
+
+        // Continuous 60fps RequestAnimationFrame Render Loop (Zero Cloned Elements)
+        function animationLoop() {
+            if (!activeRound) {
+                animFrameId = requestAnimationFrame(animationLoop);
+                return;
+            }
+
+            const W = arenaWidth;
+            const H = arenaHeight;
+            const aircraft = document.getElementById('aircraftContainer');
+            const svg = document.getElementById('aircraftSvg');
+            const exhaust = document.getElementById('exhaustGlow');
+            const multText = document.getElementById('multiplierText');
+
+            if (activeRound.status === 'waiting') {
+                currentPhase = 'waiting';
+                crashTimestamp = 0;
+
+                // Clear canvas and draw baseline runway
+                if (flightCtx) {
+                    flightCtx.clearRect(0, 0, W, H);
+                    const x0 = W * 0.08;
+                    const y0 = H * 0.84;
+                    flightCtx.save();
+                    flightCtx.beginPath();
+                    flightCtx.moveTo(x0 - 15, y0);
+                    flightCtx.lineTo(W * 0.95, y0);
+                    flightCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                    flightCtx.setLineDash([4, 4]);
+                    flightCtx.lineWidth = 1;
+                    flightCtx.stroke();
+                    flightCtx.restore();
+                }
+
+                // Single aircraft resting on runway
+                if (aircraft) {
+                    const x0 = W * 0.08;
+                    const y0 = H * 0.84;
+                    aircraft.style.transform = `translate3d(${x0 - 20}px, ${y0 - 20}px, 0) rotate(15deg)`;
+                    aircraft.style.opacity = '1';
+                }
+                if (svg) svg.className = 'w-10 h-10 sm:w-12 sm:h-12 text-blue-400 filter drop-shadow-[0_2px_8px_rgba(59,130,246,0.6)]';
+                if (exhaust) exhaust.classList.add('hidden');
+                if (multText) {
+                    multText.textContent = '1.00x';
+                    multText.className = 'font-mono font-black text-4xl sm:text-5xl tracking-tighter text-white drop-shadow-[0_4px_12px_rgba(59,130,246,0.5)]';
+                }
+
+            } else if (activeRound.status === 'running') {
+                currentPhase = 'running';
+                crashTimestamp = 0;
+
+                // Calculate authoritative elapsed flight time
+                let startMs = 0;
+                if (activeRound.flight_start_ts) {
+                    startMs = activeRound.flight_start_ts * 1000;
+                } else if (activeRound.flight_start_time) {
+                    startMs = new Date(activeRound.flight_start_time.replace(' ', 'T')).getTime();
+                }
+
+                const nowServerMs = Date.now() - serverTimeOffset;
+                const elapsed = Math.max(0, (nowServerMs - startMs) / 1000);
+                const m = Math.max(1.00, Math.floor(Math.exp(0.06 * elapsed) * 100) / 100);
+
+                // Update live multiplier text
+                if (multText) {
+                    multText.textContent = m.toFixed(2) + 'x';
+                    multText.className = 'font-mono font-black text-4xl sm:text-5xl tracking-tighter text-amber-300 drop-shadow-[0_4px_16px_rgba(251,191,36,0.6)]';
+                }
+
+                // Update cashout button live win amount
+                if (userActiveBet && userActiveBet.status === 'pending') {
+                    const curWin = (parseFloat(userActiveBet.amount) * m).toFixed(2);
+                    const btnText = document.getElementById('actionBtnText');
+                    if (btnText && btnText.textContent.startsWith('CASH OUT')) {
+                        btnText.textContent = 'CASH OUT (₹' + curWin + ')';
+                    }
+                }
+
+                // Draw flight path & position the single aircraft
+                const coord = drawFlightPath(m, elapsed, W, H);
+                if (coord) {
+                    crashCoords = coord;
+                    if (aircraft) {
+                        aircraft.style.transform = `translate3d(${coord.x - 20}px, ${coord.y - 20}px, 0) rotate(${coord.tiltAngle}deg)`;
+                        aircraft.style.opacity = '1';
+                    }
+                }
+
+                if (svg) svg.className = 'w-10 h-10 sm:w-12 sm:h-12 text-rose-500 filter drop-shadow-[0_2px_12px_rgba(244,63,94,0.85)]';
+                if (exhaust) exhaust.classList.remove('hidden');
+
+            } else if (activeRound.status === 'crashed') {
+                const finalCrash = parseFloat(activeRound.crash_multiplier || activeRound.current_multiplier || 1.0).toFixed(2);
+
+                if (currentPhase === 'running') {
+                    currentPhase = 'crashed';
+                    crashTimestamp = Date.now();
+                }
+
+                const elapsedSinceCrash = crashTimestamp > 0 ? (Date.now() - crashTimestamp) : 1000;
+                const crashProgress = Math.min(1.0, elapsedSinceCrash / 500);
+
+                // Keep path frozen on canvas with a red crash burst dot
+                if (flightCtx && crashCoords.x > 0) {
+                    drawFlightPath(parseFloat(finalCrash), 10, W, H);
+                    flightCtx.save();
+                    flightCtx.beginPath();
+                    flightCtx.arc(crashCoords.x, crashCoords.y, 4 + crashProgress * 14, 0, Math.PI * 2);
+                    flightCtx.strokeStyle = `rgba(244, 63, 94, ${1 - crashProgress})`;
+                    flightCtx.lineWidth = 2;
+                    flightCtx.stroke();
+
+                    flightCtx.beginPath();
+                    flightCtx.arc(crashCoords.x, crashCoords.y, 5, 0, Math.PI * 2);
+                    flightCtx.fillStyle = '#ef4444';
+                    flightCtx.shadowColor = 'rgba(239, 68, 68, 0.9)';
+                    flightCtx.shadowBlur = 8;
+                    flightCtx.fill();
+                    flightCtx.restore();
+                }
+
+                // Smooth fly-out crash animation for the single aircraft
+                if (aircraft) {
+                    if (crashProgress < 1.0) {
+                        const flyX = crashCoords.x + crashProgress * (W * 0.35);
+                        const flyY = crashCoords.y - crashProgress * (H * 0.30);
+                        const flyScale = Math.max(0.2, 1 - crashProgress * 0.7);
+                        const flyOpacity = Math.max(0, 1 - crashProgress * 1.6);
+                        aircraft.style.transform = `translate3d(${flyX - 20}px, ${flyY - 20}px, 0) scale(${flyScale}) rotate(${crashCoords.tiltAngle - crashProgress * 45}deg)`;
+                        aircraft.style.opacity = flyOpacity;
+                    } else {
+                        aircraft.style.opacity = '0';
+                    }
+                }
+
+                if (exhaust) exhaust.classList.add('hidden');
+                if (multText) {
+                    multText.textContent = finalCrash + 'x';
+                    multText.className = 'font-mono font-black text-4xl sm:text-5xl tracking-tighter text-rose-500 drop-shadow-[0_4px_16px_rgba(244,63,94,0.8)]';
+                }
+            }
+
+            animFrameId = requestAnimationFrame(animationLoop);
+        }
+
+        // Live Server Polling & Flight State Synchronization
         function fetchCrashState() {
             fetch('/api/crash_game_status.php')
             .then(res => res.json())
@@ -490,6 +757,13 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
                     }
                 }
 
+                // Detect round change to reset coordinates cleanly
+                if (currentRoundNumber !== null && currentRoundNumber !== data.round.round_number) {
+                    currentPhase = data.round.status;
+                    crashTimestamp = 0;
+                }
+                currentRoundNumber = data.round.round_number;
+
                 activeRound = data.round;
                 userActiveBet = data.user ? data.user.active_bet : null;
 
@@ -498,50 +772,33 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
                     if (balEl) balEl.textContent = parseFloat(data.user.balance).toFixed(2);
                 }
 
-                // Update Round Number
+                // Update Round Number Display
                 document.getElementById('displayRoundNumber').textContent = 'ROUND #' + activeRound.round_number;
 
-                // Update Phase & UI Controls
+                // Update Phase Badge & Subtexts
                 const badge = document.getElementById('phaseBadge');
                 const subtext = document.getElementById('statusSubtext');
-                const multText = document.getElementById('multiplierText');
                 const btn = document.getElementById('crashActionBtn');
                 const btnText = document.getElementById('actionBtnText');
-                const aircraft = document.getElementById('aircraftContainer');
-                const svg = document.getElementById('aircraftSvg');
-                const exhaust = document.getElementById('exhaustGlow');
+                const statusDot = document.getElementById('liveStatusDot');
 
                 if (activeRound.status === 'waiting') {
-                    badge.textContent = 'WAITING';
-                    badge.className = 'px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30';
-                    subtext.textContent = 'Next flight in ' + (activeRound.waiting_remaining || 0) + 's';
-                    multText.textContent = '1.00x';
-                    multText.className = 'font-mono font-black text-4xl sm:text-5xl tracking-tighter text-white';
-
-                    // Aircraft at runway baseline
-                    aircraft.style.bottom = '1.5rem';
-                    aircraft.style.left = '1.5rem';
-                    svg.className = 'w-10 h-10 sm:w-12 sm:h-12 text-blue-400 transform -rotate-12 transition-all';
-                    exhaust.classList.add('hidden');
-
+                    if (badge) {
+                        badge.textContent = 'WAITING';
+                        badge.className = 'px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30';
+                    }
+                    if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+                    if (subtext) subtext.textContent = 'Next flight in ' + (activeRound.waiting_remaining || 0) + 's';
                     updateBtnText();
+
                 } else if (activeRound.status === 'running') {
-                    badge.textContent = 'IN FLIGHT';
-                    badge.className = 'px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 animate-pulse';
-                    subtext.textContent = 'Ascending Multiplier...';
-                    multText.textContent = parseFloat(activeRound.current_multiplier).toFixed(2) + 'x';
-                    multText.className = 'font-mono font-black text-4xl sm:text-5xl tracking-tighter text-amber-300 drop-shadow-[0_4px_16px_rgba(251,191,36,0.6)]';
+                    if (badge) {
+                        badge.textContent = 'IN FLIGHT';
+                        badge.className = 'px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 animate-pulse';
+                    }
+                    if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                    if (subtext) subtext.textContent = 'Ascending Multiplier...';
 
-                    // Smooth ascent coordinates
-                    const elapsed = activeRound.flight_elapsed || 0;
-                    const progressX = Math.min(80, 10 + elapsed * 3.5);
-                    const progressY = Math.min(75, 10 + elapsed * 3.0);
-                    aircraft.style.bottom = progressY + '%';
-                    aircraft.style.left = progressX + '%';
-                    svg.className = 'w-10 h-10 sm:w-12 sm:h-12 text-rose-500 transform -rotate-25 filter drop-shadow-[0_2px_12px_rgba(244,63,94,0.8)]';
-                    exhaust.classList.remove('hidden');
-
-                    // Button Cash Out behavior
                     if (userActiveBet && userActiveBet.status === 'pending') {
                         const curWin = (parseFloat(userActiveBet.amount) * parseFloat(activeRound.current_multiplier)).toFixed(2);
                         btnText.textContent = 'CASH OUT (₹' + curWin + ')';
@@ -556,19 +813,15 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
                         btn.className = 'w-full py-2.5 rounded-xl bg-slate-200 text-slate-500 font-black text-xs sm:text-sm uppercase tracking-wider shadow-xs flex items-center justify-center gap-2 cursor-not-allowed';
                         btn.disabled = true;
                     }
-                } else if (activeRound.status === 'crashed') {
-                    badge.textContent = 'CRASHED';
-                    badge.className = 'px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30';
-                    const finalCrash = parseFloat(activeRound.crash_multiplier || activeRound.current_multiplier).toFixed(2);
-                    subtext.textContent = 'FLEW AWAY AT ' + finalCrash + 'x';
-                    multText.textContent = finalCrash + 'x';
-                    multText.className = 'font-mono font-black text-4xl sm:text-5xl tracking-tighter text-rose-500 drop-shadow-[0_4px_16px_rgba(244,63,94,0.8)]';
 
-                    // Aircraft flies off screen
-                    aircraft.style.bottom = '95%';
-                    aircraft.style.left = '95%';
-                    svg.className = 'w-10 h-10 sm:w-12 sm:h-12 text-slate-500 opacity-20 transform -rotate-45';
-                    exhaust.classList.add('hidden');
+                } else if (activeRound.status === 'crashed') {
+                    if (badge) {
+                        badge.textContent = 'CRASHED';
+                        badge.className = 'px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30';
+                    }
+                    if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+                    const finalCrash = parseFloat(activeRound.crash_multiplier || activeRound.current_multiplier || 1.0).toFixed(2);
+                    if (subtext) subtext.textContent = 'FLEW AWAY AT ' + finalCrash + 'x';
 
                     if (userActiveBet && userActiveBet.status === 'cashed_out') {
                         btnText.textContent = 'WON ₹' + parseFloat(userActiveBet.win_amount).toFixed(2);
@@ -596,44 +849,19 @@ $pageTitle = "Crash Game - Official Sikkim Platform";
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            flightCanvas = document.getElementById('flightCanvas');
+            if (flightCanvas) {
+                flightCtx = flightCanvas.getContext('2d');
+                resizeCanvas();
+                window.addEventListener('resize', resizeCanvas);
+            }
+
             fetchCrashState();
             pollTimer = setInterval(fetchCrashState, 1500);
 
-            // High frequency local multiplier ticker during flight
-            localMultiplierTimer = setInterval(() => {
-                if (activeRound && activeRound.status === 'running') {
-                    let startMs = 0;
-                    if (activeRound.flight_start_ts) {
-                        startMs = activeRound.flight_start_ts * 1000;
-                    } else if (activeRound.flight_start_time) {
-                        startMs = new Date(activeRound.flight_start_time.replace(' ', 'T')).getTime();
-                    }
-                    if (startMs > 0) {
-                        const nowServerMs = Date.now() - serverTimeOffset;
-                        const elapsed = Math.max(0, (nowServerMs - startMs) / 1000);
-                        const m = Math.max(1.00, Math.floor(Math.exp(0.06 * elapsed) * 100) / 100);
-                        document.getElementById('multiplierText').textContent = m.toFixed(2) + 'x';
-
-                        // Dynamically update cash out button with live win amount
-                        if (userActiveBet && userActiveBet.status === 'pending') {
-                            const curWin = (parseFloat(userActiveBet.amount) * m).toFixed(2);
-                            const btnText = document.getElementById('actionBtnText');
-                            if (btnText && btnText.textContent.startsWith('CASH OUT')) {
-                                btnText.textContent = 'CASH OUT (₹' + curWin + ')';
-                            }
-                        }
-
-                        // Dynamically update aircraft smooth coordinates
-                        const progressX = Math.min(80, 10 + elapsed * 3.5);
-                        const progressY = Math.min(75, 10 + elapsed * 3.0);
-                        const aircraft = document.getElementById('aircraftContainer');
-                        if (aircraft) {
-                            aircraft.style.bottom = progressY + '%';
-                            aircraft.style.left = progressX + '%';
-                        }
-                    }
-                }
-            }, 80);
+            // Start single continuous requestAnimationFrame render loop
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            animFrameId = requestAnimationFrame(animationLoop);
         });
     </script>
 </body>
