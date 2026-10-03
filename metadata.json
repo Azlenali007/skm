@@ -1,0 +1,6 @@
+{
+  "name": "Sikkim Gaming Platform",
+  "description": "A premium Sikkim-style gaming platform featuring real PHP and MySQL backend, round progression, wallet transactions, banners, announcements, categories, and admin panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

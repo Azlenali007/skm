@@ -1,0 +1,11 @@
+{
+  "name": "sikkim-gaming-platform",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "./start_server.sh",
+    "build": "php -l router.php && php -l index.php && php -l dashboard.php",
+    "start": "./start_server.sh"
+  }
+}

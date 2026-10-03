@@ -1,0 +1,55 @@
+/**
+ * Sikkim Gaming Platform - Core Styles
+ * Clean White + Royal Blue visual system
+ * STRICT RULE: Absolutely NO sticky and NO fixed positioning.
+ */
+
+/* Prevent horizontal scrollbars */
+html, body {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+}
+
+/* Category horizontal scroller styling */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Premium Card Shadows */
+.card-premium {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+    border-radius: 1rem;
+}
+
+/* Game Category Circle Gradient */
+.category-circle {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 2px solid #bfdbfe;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.category-circle:hover {
+    transform: translateY(-2px);
+    border-color: #3b82f6;
+    box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.25);
+}
+
+/* Banner Slide animations */
+.banner-slide {
+    transition: opacity 0.4s ease-in-out;
+}
+
+/* Round Timer Pulse */
+@keyframes timerPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.timer-urgent {
+    animation: timerPulse 0.8s infinite;
+    color: #ef4444 !important;
+}
