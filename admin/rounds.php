@@ -4,7 +4,7 @@
  * Provably Fair Sequential Rounds Inspector & Cron Trigger
  */
 require_once __DIR__ . '/includes/admin_header.php';
-require_once __DIR__ . '/../../includes/round_engine.php';
+require_once __DIR__ . '/../includes/round_engine.php';
 
 $pdo = getDB();
 

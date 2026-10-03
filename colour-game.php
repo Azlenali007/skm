@@ -1,10 +1,10 @@
 <?php
 /**
  * Sikkim Gaming Platform - Colour Game Screen
- * Strictly NO PAGE SCROLLING: Fits within viewport.
- * ONLY Game History has an internal scroll container.
+ * Strictly NO PAGE SCROLLING: Fits completely within viewport.
+ * ONLY Game History / My History has an internal scroll container.
  * Fixed bottom 4-option navigation bar.
- * Real MySQL database, authoritative server timer, and instant win/lose audit.
+ * Real MySQL database, authoritative server timer, and live outcome audit.
  */
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
@@ -65,26 +65,26 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
 <body class="bg-slate-100 text-slate-800 antialiased font-sans h-full overflow-hidden select-none">
 
     <!-- Non-Scrollable Main Game Viewport Wrapper -->
-    <div class="h-full max-w-md sm:max-w-lg md:max-w-xl mx-auto flex flex-col justify-between overflow-hidden px-3 pt-2 pb-16 sm:pb-20">
+    <div class="h-full max-w-md sm:max-w-lg md:max-w-xl mx-auto flex flex-col justify-between overflow-hidden px-2.5 sm:px-3 pt-1.5 pb-16 sm:pb-20">
 
         <!-- 1. Compact Top Bar Header -->
-        <header class="w-full bg-white rounded-xl shadow-xs border border-slate-200/90 px-3 py-2 flex items-center justify-between shrink-0">
+        <header class="w-full bg-white rounded-xl shadow-xs border border-slate-200/90 px-3 py-1.5 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-2">
-                <a href="/dashboard.php" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="Back to Dashboard">
+                <a href="/dashboard.php" class="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="Back to Dashboard">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
                     </svg>
                 </a>
                 <div>
-                    <h1 class="text-sm font-black tracking-tight text-slate-900 leading-none">Colour Game</h1>
-                    <span class="text-[10px] font-semibold text-blue-600">45s Fast Prediction</span>
+                    <h1 class="text-xs sm:text-sm font-black tracking-tight text-slate-900 leading-none">Colour Game</h1>
+                    <span class="text-[10px] font-semibold text-blue-600">45s Prediction Round</span>
                 </div>
             </div>
 
             <div class="flex items-center gap-2">
                 <?php if ($currentUser): ?>
-                    <a href="/wallet.php" class="flex items-center gap-1.5 bg-blue-50 border border-blue-200/80 px-2.5 py-1 rounded-lg text-xs font-bold text-blue-800 hover:bg-blue-100 transition shadow-2xs">
-                        <span class="text-blue-500 text-[10px]">₹</span>
+                    <a href="/wallet.php" class="flex items-center gap-1 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-lg text-xs font-bold text-blue-800 hover:bg-blue-100 transition shadow-2xs">
+                        <span class="text-blue-500 text-[10px]">Points:</span>
                         <span id="userBalanceDisplay"><?= number_format($userBalance, 2) ?></span>
                     </a>
                 <?php else: ?>
@@ -95,20 +95,20 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
             </div>
         </header>
 
-        <!-- 2. Live Win/Lose Flash Announcement (Dynamic Alert Banner) -->
+        <!-- 2. Live Outcome Notification Banner -->
         <div id="outcomeAlert" class="hidden shrink-0 my-1 p-2 rounded-xl text-xs font-bold flex items-center justify-between shadow-xs transition-all duration-300">
             <div class="flex items-center gap-2 overflow-hidden truncate">
-                <span id="outcomeIcon" class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-white">✓</span>
-                <span id="outcomeText" class="truncate">Round Outcome</span>
+                <span id="outcomeIcon" class="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-white text-[10px] font-bold">✓</span>
+                <span id="outcomeText" class="truncate text-[11px]">Round Outcome</span>
             </div>
-            <button onclick="document.getElementById('outcomeAlert').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 text-sm px-1 font-bold">&times;</button>
+            <button onclick="document.getElementById('outcomeAlert').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 text-xs px-1 font-bold">&times;</button>
         </div>
 
-        <!-- 3. Current Round & Server Authoritative Countdown Card -->
-        <div class="w-full bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white rounded-2xl p-3 shadow-md shrink-0 border border-blue-500/30">
+        <!-- 3. Current Round & Authoritative Countdown Card -->
+        <div class="w-full bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white rounded-2xl p-2.5 shadow-md shrink-0 border border-blue-500/30">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-blue-200">Current Period</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-blue-200 block">Current Period</span>
                     <div class="flex items-center gap-1.5">
                         <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                         <span id="roundNumber" class="text-base sm:text-lg font-black tracking-wider text-white">
@@ -117,93 +117,128 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
                     </div>
                 </div>
 
+                <!-- Last Published Result Badge -->
+                <div id="lastResultBox" class="text-center bg-white/10 px-2 py-0.5 rounded-lg border border-white/20">
+                    <span class="text-[9px] font-semibold text-blue-100 block">Last Result</span>
+                    <span id="lastResultText" class="text-[11px] font-black uppercase text-amber-300">--</span>
+                </div>
+
                 <div class="text-right">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-blue-200">Countdown</span>
-                    <div class="flex items-center justify-end gap-1">
-                        <div id="timerCard" class="bg-black/30 backdrop-blur-xs border border-white/20 px-3 py-1 rounded-xl font-mono text-xl sm:text-2xl font-black text-amber-300 tracking-wider">
-                            00:<span id="countdown"><?= str_pad((string)$remainingSeconds, 2, '0', STR_PAD_LEFT) ?></span>
-                        </div>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-blue-200 block">Countdown</span>
+                    <div class="bg-black/30 backdrop-blur-xs border border-white/20 px-2.5 py-0.5 rounded-xl font-mono text-lg sm:text-xl font-black text-amber-300 tracking-wider">
+                        00:<span id="countdown"><?= str_pad((string)$remainingSeconds, 2, '0', STR_PAD_LEFT) ?></span>
                     </div>
                 </div>
             </div>
 
             <!-- Lock Banner (shows in last 5 seconds) -->
-            <div id="lockWarning" class="<?= ($remainingSeconds <= 5) ? '' : 'hidden' ?> mt-2 bg-amber-400/20 border border-amber-300/40 rounded-lg py-0.5 px-2 text-center text-[10px] font-bold text-amber-200 animate-pulse">
+            <div id="lockWarning" class="<?= ($remainingSeconds <= 5) ? '' : 'hidden' ?> mt-1.5 bg-amber-400/20 border border-amber-300/40 rounded-lg py-0.5 px-2 text-center text-[10px] font-bold text-amber-200 animate-pulse">
                 ⏳ Period locked for settlement. Next round starting shortly...
             </div>
         </div>
 
-        <!-- 4. Colour Options (Touch-Friendly Selectable Cards) -->
+        <!-- 4. Colour Options (Red, Green, Violet) -->
         <div class="w-full shrink-0 my-1">
             <div class="grid grid-cols-3 gap-2">
                 <!-- RED OPTION -->
                 <button type="button" 
-                        onclick="selectColour('red', 2.0)"
+                        onclick="toggleColour('red', 2.0)"
                         id="btn-red"
-                        class="colour-btn group relative flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-md hover:brightness-105 active:scale-95 transition transform border border-red-400/40 cursor-pointer">
-                    <span class="text-xs sm:text-sm font-black tracking-wide uppercase">RED</span>
-                    <span class="text-[10px] font-extrabold bg-white/20 px-1.5 py-0.5 rounded-full mt-1">2.0X</span>
-                    <!-- Selection Indicator -->
-                    <div class="indicator hidden absolute -top-1 -right-1 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center shadow-md text-xs font-bold">✓</div>
+                        class="colour-btn group relative flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-xs hover:brightness-105 active:scale-95 transition transform border border-red-400/40 cursor-pointer">
+                    <span class="text-xs font-black tracking-wide uppercase">RED</span>
+                    <span class="text-[9px] font-extrabold bg-white/20 px-1 py-0.2 rounded-full mt-0.5">2.0X</span>
+                    <div class="indicator hidden absolute -top-1 -right-1 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center shadow-md text-[10px] font-bold">✓</div>
                 </button>
 
                 <!-- GREEN OPTION -->
                 <button type="button" 
-                        onclick="selectColour('green', 2.0)"
+                        onclick="toggleColour('green', 2.0)"
                         id="btn-green"
-                        class="colour-btn group relative flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-md hover:brightness-105 active:scale-95 transition transform border border-emerald-400/40 cursor-pointer">
-                    <span class="text-xs sm:text-sm font-black tracking-wide uppercase">GREEN</span>
-                    <span class="text-[10px] font-extrabold bg-white/20 px-1.5 py-0.5 rounded-full mt-1">2.0X</span>
-                    <!-- Selection Indicator -->
-                    <div class="indicator hidden absolute -top-1 -right-1 w-5 h-5 bg-white text-green-600 rounded-full flex items-center justify-center shadow-md text-xs font-bold">✓</div>
+                        class="colour-btn group relative flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-xs hover:brightness-105 active:scale-95 transition transform border border-emerald-400/40 cursor-pointer">
+                    <span class="text-xs font-black tracking-wide uppercase">GREEN</span>
+                    <span class="text-[9px] font-extrabold bg-white/20 px-1 py-0.2 rounded-full mt-0.5">2.0X</span>
+                    <div class="indicator hidden absolute -top-1 -right-1 w-4 h-4 bg-white text-green-600 rounded-full flex items-center justify-center shadow-md text-[10px] font-bold">✓</div>
                 </button>
 
                 <!-- VIOLET OPTION -->
                 <button type="button" 
-                        onclick="selectColour('violet', 4.5)"
+                        onclick="toggleColour('violet', 4.5)"
                         id="btn-violet"
-                        class="colour-btn group relative flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-md hover:brightness-105 active:scale-95 transition transform border border-purple-400/40 cursor-pointer">
-                    <span class="text-xs sm:text-sm font-black tracking-wide uppercase">VIOLET</span>
-                    <span class="text-[10px] font-extrabold bg-white/20 px-1.5 py-0.5 rounded-full mt-1">4.5X</span>
-                    <!-- Selection Indicator -->
-                    <div class="indicator hidden absolute -top-1 -right-1 w-5 h-5 bg-white text-purple-600 rounded-full flex items-center justify-center shadow-md text-xs font-bold">✓</div>
+                        class="colour-btn group relative flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-xs hover:brightness-105 active:scale-95 transition transform border border-purple-400/40 cursor-pointer">
+                    <span class="text-xs font-black tracking-wide uppercase">VIOLET</span>
+                    <span class="text-[9px] font-extrabold bg-white/20 px-1 py-0.2 rounded-full mt-0.5">4.5X</span>
+                    <div class="indicator hidden absolute -top-1 -right-1 w-4 h-4 bg-white text-purple-600 rounded-full flex items-center justify-center shadow-md text-[10px] font-bold">✓</div>
                 </button>
             </div>
         </div>
 
-        <!-- 5. User Selection & Amount Input Panel -->
-        <div class="w-full bg-white rounded-2xl shadow-xs border border-slate-200/90 p-2.5 shrink-0">
-            <div class="flex items-center justify-between mb-1.5">
-                <div class="text-xs">
+        <!-- 5. Number Options (0 to 9 in 2 Rows) -->
+        <div class="w-full bg-white rounded-xl shadow-xs border border-slate-200/90 p-2 shrink-0">
+            <div class="flex items-center justify-between mb-1 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                <span>SELECT NUMBER (0 – 9)</span>
+                <span class="text-blue-600 font-black">9.0X MULTIPLIER</span>
+            </div>
+
+            <!-- Numbers 0 to 9 Grid -->
+            <div class="grid grid-cols-5 gap-1.5">
+                <?php 
+                $numberColors = [
+                    0 => 'border-purple-300 text-purple-700',
+                    1 => 'border-emerald-300 text-emerald-700',
+                    2 => 'border-red-300 text-red-700',
+                    3 => 'border-emerald-300 text-emerald-700',
+                    4 => 'border-red-300 text-red-700',
+                    5 => 'border-purple-300 text-purple-700',
+                    6 => 'border-red-300 text-red-700',
+                    7 => 'border-emerald-300 text-emerald-700',
+                    8 => 'border-red-300 text-red-700',
+                    9 => 'border-emerald-300 text-emerald-700'
+                ];
+                for ($n = 0; $n <= 9; $n++): 
+                    $colStyle = $numberColors[$n] ?? 'border-slate-200 text-slate-800';
+                ?>
+                    <button type="button" 
+                            onclick="toggleNumber(<?= $n ?>)"
+                            id="num-btn-<?= $n ?>"
+                            class="number-btn relative py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border <?= $colStyle ?> font-mono font-black text-xs sm:text-sm text-center shadow-2xs hover:shadow-xs transition active:scale-95 cursor-pointer">
+                        <?= $n ?>
+                        <div class="num-indicator hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold">✓</div>
+                    </button>
+                <?php endfor; ?>
+            </div>
+        </div>
+
+        <!-- 6. User Selection & Points Input Row -->
+        <div class="w-full bg-white rounded-xl shadow-xs border border-slate-200/90 p-2 shrink-0">
+            <div class="flex items-center justify-between text-[11px] mb-1">
+                <div class="truncate">
                     <span class="text-slate-500 font-medium">Selected:</span>
                     <span id="selectedChoiceText" class="font-extrabold uppercase text-slate-400 ml-1">None</span>
                 </div>
-                <div class="text-xs">
-                    <span class="text-slate-500 font-medium">Potential Payout:</span>
-                    <span id="potentialWinText" class="font-extrabold text-blue-600 ml-1">₹0.00</span>
+                <div class="shrink-0 text-right">
+                    <span class="text-slate-500 font-medium">Potential:</span>
+                    <span id="potentialWinText" class="font-extrabold text-blue-600 ml-1">0.00</span>
                 </div>
             </div>
 
-            <!-- Amount Input & Quick Chips -->
-            <div class="flex items-center gap-1.5 mb-2">
+            <!-- Points Input & Quick Chips -->
+            <div class="flex items-center gap-1.5 mb-1.5">
                 <div class="relative flex-1">
-                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">₹</span>
                     <input type="number" 
                            id="betAmount" 
                            value="100" 
                            min="10" 
                            step="10"
-                           class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
-                           placeholder="Bet Amount"
+                           class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                           placeholder="Points"
                            oninput="updatePayoutCalculation()">
                 </div>
 
-                <!-- Quick amount chip buttons -->
                 <div class="flex items-center gap-1 shrink-0">
-                    <button type="button" onclick="setQuickAmount(10)" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition">+10</button>
-                    <button type="button" onclick="setQuickAmount(50)" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition">+50</button>
-                    <button type="button" onclick="setQuickAmount(100)" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition">+100</button>
-                    <button type="button" onclick="setQuickAmount(500)" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition">+500</button>
+                    <button type="button" onclick="setQuickAmount(10)" class="px-2 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition">+10</button>
+                    <button type="button" onclick="setQuickAmount(50)" class="px-2 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition">+50</button>
+                    <button type="button" onclick="setQuickAmount(100)" class="px-2 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition">+100</button>
+                    <button type="button" onclick="setQuickAmount(500)" class="px-2 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] font-bold transition">+500</button>
                 </div>
             </div>
 
@@ -211,67 +246,117 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
             <button type="button" 
                     id="submitBetBtn"
                     onclick="submitBet()"
-                    class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-xs uppercase tracking-wider shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-                <span id="submitBtnText">SUBMIT BET</span>
+                    class="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-xs uppercase tracking-wider shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                <span id="submitBtnText">SUBMIT ENTRY</span>
             </button>
         </div>
 
-        <!-- 6. Game History (ONLY THIS AREA SCROLLS) -->
-        <div class="w-full flex-1 flex flex-col min-h-0 bg-white rounded-2xl shadow-xs border border-slate-200/90 p-2.5 my-1">
-            <div class="flex items-center justify-between pb-1.5 mb-1 border-b border-slate-100 shrink-0">
-                <div class="flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-                    <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-800">GAME HISTORY</h3>
+        <!-- 7. History Container (ONLY THIS AREA SCROLLS) -->
+        <div class="w-full flex-1 flex flex-col min-h-0 bg-white rounded-xl shadow-xs border border-slate-200/90 p-2 my-0.5">
+            <!-- Navigation Tabs: My History vs Game History -->
+            <div class="flex items-center justify-between pb-1 mb-1 border-b border-slate-100 shrink-0">
+                <div class="flex items-center gap-1 text-[11px] font-black">
+                    <button type="button" id="tabMyHistory" onclick="switchHistoryTab('my')" class="px-2.5 py-0.5 rounded-lg bg-blue-600 text-white transition">
+                        MY HISTORY
+                    </button>
+                    <button type="button" id="tabGameHistory" onclick="switchHistoryTab('game')" class="px-2.5 py-0.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">
+                        GAME HISTORY
+                    </button>
                 </div>
-                <span class="text-[10px] text-slate-400 font-medium">Scroll down to view more</span>
+                <span class="text-[9px] text-slate-400 font-medium">Live Server Updates</span>
             </div>
 
-            <!-- Internal Scroll Container for Game History -->
-            <div id="historyList" class="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs divide-y divide-slate-50">
-                <!-- Dynamically populated via AJAX with fallback placeholders -->
-                <div class="py-2 text-center text-slate-400 text-[11px]">Loading verified rounds...</div>
+            <!-- Internal Scroll Container for History Entries -->
+            <div id="historyScrollContainer" class="flex-1 overflow-y-auto space-y-1 pr-1 text-xs divide-y divide-slate-50">
+                <!-- Dynamically populated via AJAX -->
+                <div class="py-2 text-center text-slate-400 text-[10px]">Loading history...</div>
             </div>
         </div>
 
     </div>
 
-    <!-- 7. Fixed Bottom 4-Option Navigation Bar -->
+    <!-- 8. Fixed Bottom 4-Option Navigation Bar -->
     <?php require_once __DIR__ . '/includes/user_nav.php'; ?>
 
-    <!-- Plain JavaScript Game Client (No framework, pure AJAX & DOM) -->
+    <!-- Plain JavaScript Game Client (Zero Framework, Pure AJAX & DOM) -->
     <script>
         const IS_LOGGED_IN = <?= $currentUser ? 'true' : 'false' ?>;
         let selectedColor = null;
-        let selectedMultiplier = 2.0;
+        let selectedNumber = null;
         let activeRoundNumber = <?= (int)$activeRound['round_number'] ?>;
         let remainingSeconds = <?= (int)$remainingSeconds ?>;
         let isLocked = <?= ($remainingSeconds <= 5) ? 'true' : 'false' ?>;
         let countdownTimer = null;
         let pollingInterval = null;
         let lastNotifiedRound = null;
+        let currentHistoryTab = 'my';
+        let latestMyHistory = [];
+        let latestGameHistory = [];
 
-        // Select a colour card
-        function selectColour(color, multiplier) {
-            selectedColor = color;
-            selectedMultiplier = multiplier;
+        // Toggle Colour Selection
+        function toggleColour(color, multiplier) {
+            if (selectedColor === color) {
+                selectedColor = null;
+            } else {
+                selectedColor = color;
+            }
 
-            // Reset all buttons
             document.querySelectorAll('.colour-btn').forEach(btn => {
                 btn.classList.remove('ring-4', 'ring-offset-2', 'ring-blue-600', 'scale-[1.03]');
                 btn.querySelector('.indicator').classList.add('hidden');
             });
 
-            // Highlight selected button
-            const activeBtn = document.getElementById('btn-' + color);
-            if (activeBtn) {
-                activeBtn.classList.add('ring-4', 'ring-offset-2', 'ring-blue-600', 'scale-[1.03]');
-                activeBtn.querySelector('.indicator').classList.remove('hidden');
+            if (selectedColor) {
+                const activeBtn = document.getElementById('btn-' + selectedColor);
+                if (activeBtn) {
+                    activeBtn.classList.add('ring-4', 'ring-offset-2', 'ring-blue-600', 'scale-[1.03]');
+                    activeBtn.querySelector('.indicator').classList.remove('hidden');
+                }
             }
 
-            // Update UI
-            const choiceText = document.getElementById('selectedChoiceText');
-            choiceText.textContent = color.toUpperCase();
-            choiceText.className = 'font-black uppercase ml-1 ' + (color === 'red' ? 'text-red-600' : (color === 'green' ? 'text-green-600' : 'text-purple-600'));
+            updateSelectionDisplay();
+        }
+
+        // Toggle Number Selection (0 to 9)
+        function toggleNumber(num) {
+            if (selectedNumber === num) {
+                selectedNumber = null;
+            } else {
+                selectedNumber = num;
+            }
+
+            document.querySelectorAll('.number-btn').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-blue-600', 'bg-blue-600', 'text-white', 'scale-105');
+                btn.querySelector('.num-indicator').classList.add('hidden');
+            });
+
+            if (selectedNumber !== null) {
+                const activeBtn = document.getElementById('num-btn-' + selectedNumber);
+                if (activeBtn) {
+                    activeBtn.classList.add('ring-2', 'ring-blue-600', 'bg-blue-600', 'text-white', 'scale-105');
+                    activeBtn.querySelector('.num-indicator').classList.remove('hidden');
+                }
+            }
+
+            updateSelectionDisplay();
+        }
+
+        function updateSelectionDisplay() {
+            const textEl = document.getElementById('selectedChoiceText');
+            let parts = [];
+            if (selectedColor) {
+                parts.push('<span class="' + (selectedColor === 'red' ? 'text-red-600' : (selectedColor === 'green' ? 'text-green-600' : 'text-purple-600')) + '">' + selectedColor.toUpperCase() + '</span>');
+            }
+            if (selectedNumber !== null) {
+                parts.push('<span class="text-blue-700 font-mono">Num ' + selectedNumber + '</span>');
+            }
+
+            if (parts.length > 0) {
+                textEl.innerHTML = parts.join(' + ');
+            } else {
+                textEl.textContent = 'None';
+                textEl.className = 'font-extrabold uppercase text-slate-400 ml-1';
+            }
 
             updatePayoutCalculation();
         }
@@ -284,9 +369,34 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
         }
 
         function updatePayoutCalculation() {
-            const amount = parseFloat(document.getElementById('betAmount').value) || 0;
-            const payout = (amount * selectedMultiplier).toFixed(2);
-            document.getElementById('potentialWinText').textContent = '₹' + payout;
+            const points = parseFloat(document.getElementById('betAmount').value) || 0;
+            let mult = 0;
+            if (selectedNumber !== null && selectedColor !== null) {
+                mult = 9.0 + (selectedColor === 'violet' ? 4.5 : 2.0);
+            } else if (selectedNumber !== null) {
+                mult = 9.0;
+            } else if (selectedColor === 'violet') {
+                mult = 4.5;
+            } else if (selectedColor) {
+                mult = 2.0;
+            }
+            document.getElementById('potentialWinText').textContent = (points * mult).toFixed(2);
+        }
+
+        function switchHistoryTab(tab) {
+            currentHistoryTab = tab;
+            const myBtn = document.getElementById('tabMyHistory');
+            const gameBtn = document.getElementById('tabGameHistory');
+
+            if (tab === 'my') {
+                myBtn.className = 'px-2.5 py-0.5 rounded-lg bg-blue-600 text-white transition';
+                gameBtn.className = 'px-2.5 py-0.5 rounded-lg text-slate-600 hover:bg-slate-100 transition';
+                renderMyHistory(latestMyHistory);
+            } else {
+                gameBtn.className = 'px-2.5 py-0.5 rounded-lg bg-blue-600 text-white transition';
+                myBtn.className = 'px-2.5 py-0.5 rounded-lg text-slate-600 hover:bg-slate-100 transition';
+                renderGameHistory(latestGameHistory);
+            }
         }
 
         // Submit Bet to Server
@@ -296,30 +406,31 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
                 return;
             }
 
-            if (!selectedColor) {
-                alert('Please select a colour first (Red, Green, or Violet).');
+            if (!selectedColor && selectedNumber === null) {
+                alert('Please select a Colour (Red, Green, Violet) or a Number (0–9).');
                 return;
             }
 
-            const amount = parseFloat(document.getElementById('betAmount').value) || 0;
-            if (amount < 10) {
-                alert('Minimum bet amount is ₹10.00');
+            const points = parseFloat(document.getElementById('betAmount').value) || 0;
+            if (points < 10) {
+                alert('Minimum entry is 10 points.');
                 return;
             }
 
             if (isLocked) {
-                alert('Period #' + activeRoundNumber + ' is locked for calculation. Please wait for the next round.');
+                alert('Period #' + activeRoundNumber + ' is locked for settlement. Please wait for the next round.');
                 return;
             }
 
             const btn = document.getElementById('submitBetBtn');
             const btnText = document.getElementById('submitBtnText');
             btn.disabled = true;
-            btnText.textContent = 'PLACING BET...';
+            btnText.textContent = 'SUBMITTING...';
 
             const formData = new FormData();
-            formData.append('choice', selectedColor);
-            formData.append('amount', amount);
+            if (selectedColor) formData.append('colour', selectedColor);
+            if (selectedNumber !== null) formData.append('number', selectedNumber);
+            formData.append('points', points);
 
             fetch('/api/place_colour_bet.php', {
                 method: 'POST',
@@ -328,36 +439,50 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
             .then(res => res.json())
             .then(data => {
                 btn.disabled = false;
-                btnText.textContent = 'SUBMIT BET';
+                btnText.textContent = 'SUBMIT ENTRY';
 
                 if (data.success) {
-                    // Update user balance in top bar
                     if (data.new_balance !== undefined) {
                         const balEl = document.getElementById('userBalanceDisplay');
                         if (balEl) balEl.textContent = parseFloat(data.new_balance).toFixed(2);
                     }
 
-                    // Show success confirmation
+                    // Immediately prepend PENDING entry into My History UI
+                    if (data.entry) {
+                        const optimisticEntry = {
+                            id: data.entry.id,
+                            round_number: data.entry.round_number,
+                            selected_colour: data.entry.selected_colour,
+                            selected_number: data.entry.selected_number,
+                            points: data.entry.points,
+                            status: 'pending',
+                            result: 'PENDING',
+                            win_amount: 0.00
+                        };
+                        latestMyHistory.unshift(optimisticEntry);
+                        if (currentHistoryTab === 'my') {
+                            renderMyHistory(latestMyHistory);
+                        }
+                    }
+
                     showOutcomeBanner(
-                        'Bet of ₹' + amount.toFixed(2) + ' on [' + selectedColor.toUpperCase() + '] placed!',
-                        'success'
+                        'Entry of ' + points.toFixed(0) + ' points on ' + (data.entry.selected_colour || '') + (data.entry.selected_number !== null ? ' Num ' + data.entry.selected_number : '') + ' placed!',
+                        'info'
                     );
 
-                    // Refresh status
                     fetchGameStatus();
                 } else {
-                    alert(data.message || 'Could not place bet.');
+                    alert(data.message || 'Could not place entry.');
                 }
             })
             .catch(err => {
                 btn.disabled = false;
-                btnText.textContent = 'SUBMIT BET';
+                btnText.textContent = 'SUBMIT ENTRY';
                 console.error(err);
                 alert('Network error. Please try again.');
             });
         }
 
-        // Show Win/Lose announcement banner
         function showOutcomeBanner(message, type) {
             const alertBox = document.getElementById('outcomeAlert');
             const alertText = document.getElementById('outcomeText');
@@ -368,29 +493,26 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
 
             if (type === 'win') {
                 alertBox.classList.add('bg-emerald-50', 'text-emerald-800', 'border', 'border-emerald-300');
-                alertIcon.className = 'w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 text-xs font-bold';
+                alertIcon.className = 'w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 text-[10px] font-bold';
                 alertIcon.textContent = '✓';
             } else if (type === 'lose') {
                 alertBox.classList.add('bg-rose-50', 'text-rose-800', 'border', 'border-rose-300');
-                alertIcon.className = 'w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center shrink-0 text-xs font-bold';
+                alertIcon.className = 'w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center shrink-0 text-[10px] font-bold';
                 alertIcon.textContent = '✕';
             } else {
                 alertBox.classList.add('bg-blue-50', 'text-blue-800', 'border', 'border-blue-300');
-                alertIcon.className = 'w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold';
+                alertIcon.className = 'w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 text-[10px] font-bold';
                 alertIcon.textContent = 'i';
             }
         }
 
-        // Server Synchronized Countdown Timer
         function startCountdown() {
             clearInterval(countdownTimer);
-
             countdownTimer = setInterval(() => {
                 if (remainingSeconds > 0) {
                     remainingSeconds--;
                     updateCountdownDisplay();
                 } else {
-                    // Timer reached 0: request authoritative state from server
                     fetchGameStatus();
                 }
             }, 1000);
@@ -407,23 +529,21 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
                 isLocked = true;
                 lockWarning.classList.remove('hidden');
                 submitBtn.disabled = true;
-                document.getElementById('timerCard').classList.add('text-rose-400');
             } else {
                 isLocked = false;
                 lockWarning.classList.add('hidden');
                 submitBtn.disabled = false;
-                document.getElementById('timerCard').classList.remove('text-rose-400');
             }
         }
 
-        // Fetch authoritative server round & history
+        // Fetch Authoritative Server State & Real MySQL History
         function fetchGameStatus() {
             fetch('/api/colour_game_status.php')
             .then(res => res.json())
             .then(data => {
                 if (!data.success) return;
 
-                // Sync Round
+                // Sync Active Round
                 if (data.round) {
                     activeRoundNumber = data.round.round_number;
                     document.getElementById('roundNumber').textContent = '#' + activeRoundNumber;
@@ -438,67 +558,84 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
                     if (balEl) balEl.textContent = parseFloat(data.user.balance).toFixed(2);
                 }
 
-                // Check for Win / Lose result notification
+                // Last Round Published Result (Color & Number)
+                if (data.last_round_result) {
+                    const lr = data.last_round_result;
+                    const resText = document.getElementById('lastResultText');
+                    resText.textContent = lr.result_color.toUpperCase() + ' ' + lr.result_number;
+                }
+
+                // Check for User Win/Lose Announcement
                 if (data.last_outcome && data.last_outcome.round_number !== lastNotifiedRound) {
                     lastNotifiedRound = data.last_outcome.round_number;
                     const lo = data.last_outcome;
                     if (lo.status === 'won') {
                         showOutcomeBanner(
-                            'ROUND ' + lo.round_number + ' RESULT: ' + lo.result_color.toUpperCase() + ' • ✓ WIN: ₹' + lo.win_amount.toFixed(2) + ' Credited!',
+                            'ROUND ' + lo.round_number + ' RESULT: ' + lo.result_color.toUpperCase() + ' (Num ' + lo.result_number + ') • ✓ WIN: ' + lo.win_amount.toFixed(2) + ' Points Credited!',
                             'win'
                         );
                     } else if (lo.status === 'lost') {
                         showOutcomeBanner(
-                            'ROUND ' + lo.round_number + ' RESULT: ' + lo.result_color.toUpperCase() + ' • ✕ LOSE: ₹' + lo.amount.toFixed(2),
+                            'ROUND ' + lo.round_number + ' RESULT: ' + lo.result_color.toUpperCase() + ' (Num ' + lo.result_number + ') • ✕ LOSE',
                             'lose'
                         );
                     }
                 }
 
-                // Populate Game History (internal scrolling list)
-                if (data.history && Array.isArray(data.history)) {
-                    renderHistoryList(data.history);
+                // Update My History & Game History lists
+                latestMyHistory = data.my_history || [];
+                latestGameHistory = data.game_history || [];
+
+                if (currentHistoryTab === 'my') {
+                    renderMyHistory(latestMyHistory);
+                } else {
+                    renderGameHistory(latestGameHistory);
                 }
             })
             .catch(err => console.error('Status fetch error:', err));
         }
 
-        // Render Game History items inside internal scroll container
-        function renderHistoryList(history) {
-            const listEl = document.getElementById('historyList');
+        // Render My History (Real MySQL Data: Round, Selection, Number, Points, Result PENDING -> WIN/LOSE)
+        function renderMyHistory(history) {
+            const listEl = document.getElementById('historyScrollContainer');
+            if (!IS_LOGGED_IN) {
+                listEl.innerHTML = '<div class="py-3 text-center text-slate-400 text-[11px]"><a href="/login.php?redirect=/colour-game.php" class="text-blue-600 font-bold hover:underline">Log in</a> to view your real game entries.</div>';
+                return;
+            }
+
             if (!history || history.length === 0) {
-                listEl.innerHTML = '<div class="py-2 text-center text-slate-400 text-[11px]">No rounds recorded yet.</div>';
+                listEl.innerHTML = '<div class="py-3 text-center text-slate-400 text-[11px]">No entries placed yet. Select a colour or number above.</div>';
                 return;
             }
 
             let html = '';
             history.forEach(item => {
-                const color = (item.result_color || 'pending').toLowerCase();
-                let colorBadge = 'bg-slate-200 text-slate-700';
-                if (color === 'red') colorBadge = 'bg-red-500 text-white';
-                if (color === 'green') colorBadge = 'bg-emerald-500 text-white';
-                if (color === 'violet') colorBadge = 'bg-purple-600 text-white';
+                let badge = '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 animate-pulse">PENDING</span>';
+                if (item.result === 'WIN') {
+                    badge = '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">WIN +' + parseFloat(item.win_amount || 0).toFixed(0) + '</span>';
+                } else if (item.result === 'LOSE') {
+                    badge = '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-100 text-rose-800">LOSE</span>';
+                }
 
-                let userResultHtml = '<span class="text-slate-400 text-[10px]">--</span>';
-                if (item.user_choice) {
-                    if (item.user_status === 'won') {
-                        userResultHtml = '<span class="font-black text-emerald-600 text-[10px]">WIN +₹' + (item.win_amount || 0).toFixed(2) + '</span>';
-                    } else if (item.user_status === 'lost') {
-                        userResultHtml = '<span class="font-bold text-rose-500 text-[10px]">LOSE -₹' + (item.amount || 0).toFixed(2) + '</span>';
-                    }
+                let selParts = [];
+                if (item.selected_colour) {
+                    let colClass = item.selected_colour === 'RED' ? 'text-red-600' : (item.selected_colour === 'GREEN' ? 'text-green-600' : 'text-purple-600');
+                    selParts.push('<span class="' + colClass + ' font-bold">' + item.selected_colour + '</span>');
+                }
+                if (item.selected_number !== null) {
+                    selParts.push('<span class="font-mono font-bold text-blue-700">Num: ' + item.selected_number + '</span>');
                 }
 
                 html += `
-                    <div class="flex items-center justify-between py-1 px-1.5 hover:bg-slate-50 rounded-lg transition">
-                        <div class="flex items-center gap-2">
-                            <span class="font-mono font-bold text-slate-700 text-xs">#${item.round_number}</span>
-                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${colorBadge}">
-                                ${color}
-                            </span>
+                    <div class="flex items-center justify-between py-1 px-1.5 hover:bg-slate-50 rounded-lg transition text-[11px]">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-mono font-black text-slate-800">#${item.round_number}</span>
+                            <span class="text-slate-300">|</span>
+                            <span>${selParts.join(' ')}</span>
                         </div>
-                        <div class="flex items-center gap-2 text-right">
-                            ${item.user_choice ? '<span class="text-[10px] text-slate-500 font-semibold">Your: ' + item.user_choice.toUpperCase() + '</span>' : ''}
-                            ${userResultHtml}
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-slate-600">${parseFloat(item.points).toFixed(0)} pts</span>
+                            ${badge}
                         </div>
                     </div>
                 `;
@@ -507,13 +644,47 @@ $pageTitle = "Colour Game - Official Sikkim Platform";
             listEl.innerHTML = html;
         }
 
-        // Initialize on load
+        // Render Public Game History
+        function renderGameHistory(history) {
+            const listEl = document.getElementById('historyScrollContainer');
+            if (!history || history.length === 0) {
+                listEl.innerHTML = '<div class="py-3 text-center text-slate-400 text-[11px]">No rounds completed yet.</div>';
+                return;
+            }
+
+            let html = '';
+            history.forEach(item => {
+                const color = (item.result_color || '').toLowerCase();
+                let colorBadge = 'bg-slate-200 text-slate-700';
+                if (color === 'red') colorBadge = 'bg-red-500 text-white';
+                if (color === 'green') colorBadge = 'bg-emerald-500 text-white';
+                if (color === 'violet') colorBadge = 'bg-purple-600 text-white';
+
+                html += `
+                    <div class="flex items-center justify-between py-1 px-1.5 hover:bg-slate-50 rounded-lg transition text-[11px]">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono font-black text-slate-800">#${item.round_number}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${colorBadge}">
+                                ${color}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 text-[10px]">Number:</span>
+                            <span class="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 font-mono font-black text-slate-900 flex items-center justify-center text-xs">
+                                ${item.result_number}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = html;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             startCountdown();
             fetchGameStatus();
-
-            // Poll every 3 seconds for live state and round finalization
-            pollingInterval = setInterval(fetchGameStatus, 3000);
+            pollingInterval = setInterval(fetchGameStatus, 2500);
         });
     </script>
 </body>

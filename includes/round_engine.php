@@ -4,7 +4,8 @@
  * Completely Server-Side & MySQL Authoritative.
  * Guarantees strictly sequential rounds (e.g. 321 -> 322 -> 323).
  * Never exposes unpublished results.
- * Supports both Automatic and Manual Result Modes with Manual Priority.
+ * Supports Colours (Red, Green, Violet) and Numbers (0-9).
+ * Supports Automatic and Manual Result Modes with Manual Priority.
  */
 
 require_once __DIR__ . '/../config/database.php';
@@ -31,7 +32,6 @@ function processAndGetActiveRound(PDO $pdo, string $gameSlug = 'colour-game'): a
         $lastRoundStmt->execute([':slug' => $gameSlug]);
         $maxRn = $lastRoundStmt->fetchColumn();
         
-        // Use 321 for colour-game as requested, or sequential from existing
         $defaultStart = ($gameSlug === 'colour-game') ? 321 : 321001;
         $nextRn = $maxRn ? ((int)$maxRn + 1) : $defaultStart;
 
@@ -53,12 +53,10 @@ function processAndGetActiveRound(PDO $pdo, string $gameSlug = 'colour-game'): a
         return $stmt->fetch();
     }
 
-    // Check if the current round has reached expiration (end_time <= now)
+    // Check if current round reached expiration
     if (strtotime($currentRound['end_time']) <= time()) {
-        // Authoritatively finalize expired round in atomic MySQL transaction
         finalizeRoundAndCreateNext($pdo, (int)$currentRound['id'], $gameSlug);
 
-        // Fetch newly created active round
         $stmt->execute([':slug' => $gameSlug]);
         $newActive = $stmt->fetch();
         return $newActive ?: $currentRound;
@@ -70,11 +68,10 @@ function processAndGetActiveRound(PDO $pdo, string $gameSlug = 'colour-game'): a
 /**
  * Finalize an active round, audit all bets, credit winners, and spawn next sequential round.
  */
-function finalizeRoundAndCreateNext(PDO $pdo, int $roundId, string $gameSlug, ?string $forcedResult = null): bool {
+function finalizeRoundAndCreateNext(PDO $pdo, int $roundId, string $gameSlug, ?string $forcedResult = null, ?int $forcedNumber = null): bool {
     try {
         $pdo->beginTransaction();
 
-        // Lock the round record for update to prevent race conditions
         $stmt = $pdo->prepare("SELECT * FROM `game_rounds` WHERE `id` = :id FOR UPDATE");
         $stmt->execute([':id' => $roundId]);
         $round = $stmt->fetch();
@@ -84,46 +81,52 @@ function finalizeRoundAndCreateNext(PDO $pdo, int $roundId, string $gameSlug, ?s
             return false;
         }
 
-        // Determine final result color
         $resultColor = '';
         $resultNumber = null;
         $resultSize = null;
 
-        // Priority 1: Forced result parameter (admin instant publish)
-        if (!empty($forcedResult) && in_array(strtolower($forcedResult), ['red', 'green', 'violet'], true)) {
-            $resultColor = strtolower($forcedResult);
-        }
-        // Priority 2: Pre-configured manual result in round record
-        elseif ($round['result_mode'] === 'manual' && !empty($round['manual_result'])) {
-            $resultColor = strtolower(trim($round['manual_result']));
-        }
-        // Priority 3: Automatic Server-Side Generation
-        else {
-            if ($gameSlug === 'colour-game') {
-                // Weighted distribution: 45% Red, 45% Green, 10% Violet
-                $rand = random_int(1, 100);
-                if ($rand <= 45) {
-                    $resultColor = 'red';
-                } elseif ($rand <= 90) {
-                    $resultColor = 'green';
-                } else {
-                    $resultColor = 'violet';
-                }
+        // Determine number & color based on manual priority or server automatic generator
+        $hasManualNumber = ($forcedNumber !== null && $forcedNumber >= 0 && $forcedNumber <= 9) || 
+                            ($round['result_mode'] === 'manual' && $round['manual_number'] !== null);
+        $hasManualColor = (!empty($forcedResult) && in_array(strtolower($forcedResult), ['red', 'green', 'violet'], true)) ||
+                          ($round['result_mode'] === 'manual' && !empty($round['manual_result']));
+
+        if ($hasManualNumber && $hasManualColor) {
+            $resultNumber = ($forcedNumber !== null) ? (int)$forcedNumber : (int)$round['manual_number'];
+            $resultColor = !empty($forcedResult) ? strtolower($forcedResult) : strtolower(trim($round['manual_result']));
+        } elseif ($hasManualNumber) {
+            $resultNumber = ($forcedNumber !== null) ? (int)$forcedNumber : (int)$round['manual_number'];
+            if ($resultNumber === 0 || $resultNumber === 5) {
+                $resultColor = 'violet';
+            } elseif (in_array($resultNumber, [1, 3, 7, 9], true)) {
+                $resultColor = 'green';
             } else {
-                // Win-Go style with number & color
-                $resultNumber = random_int(0, 9);
-                if ($resultNumber === 0) {
-                    $resultColor = 'red-violet';
-                } elseif ($resultNumber === 5) {
-                    $resultColor = 'green-violet';
-                } elseif (in_array($resultNumber, [1, 3, 7, 9], true)) {
-                    $resultColor = 'green';
-                } else {
-                    $resultColor = 'red';
-                }
-                $resultSize = ($resultNumber >= 5) ? 'big' : 'small';
+                $resultColor = 'red';
+            }
+        } elseif ($hasManualColor) {
+            $resultColor = !empty($forcedResult) ? strtolower($forcedResult) : strtolower(trim($round['manual_result']));
+            if ($resultColor === 'violet') {
+                $resultNumber = (random_int(1, 10) > 5) ? 5 : 0;
+            } elseif ($resultColor === 'green') {
+                $greens = [1, 3, 7, 9, 5];
+                $resultNumber = $greens[array_rand($greens)];
+            } else {
+                $reds = [2, 4, 6, 8, 0];
+                $resultNumber = $reds[array_rand($reds)];
+            }
+        } else {
+            // Automatic generation: Pick random number 0 to 9
+            $resultNumber = random_int(0, 9);
+            if ($resultNumber === 0 || $resultNumber === 5) {
+                $resultColor = 'violet';
+            } elseif (in_array($resultNumber, [1, 3, 7, 9], true)) {
+                $resultColor = 'green';
+            } else {
+                $resultColor = 'red';
             }
         }
+
+        $resultSize = ($resultNumber >= 5) ? 'big' : 'small';
 
         // 2. Fetch and evaluate all bets on this round
         $betsStmt = $pdo->prepare("SELECT * FROM `game_bets` WHERE `round_id` = :rid AND `status` = 'pending' FOR UPDATE");
@@ -136,49 +139,72 @@ function finalizeRoundAndCreateNext(PDO $pdo, int $roundId, string $gameSlug, ?s
         foreach ($bets as $bet) {
             $betAmount = (float)$bet['amount'];
             $totalBets += $betAmount;
-            $choice = strtolower(trim($bet['bet_choice']));
             $isWin = false;
-            $winMultiplier = (float)$bet['multiplier'];
+            $winMultiplier = 0.0;
 
-            if ($gameSlug === 'colour-game') {
-                if ($choice === $resultColor) {
-                    $isWin = true;
-                    if ($choice === 'violet') {
-                        $winMultiplier = 4.50;
-                    } else {
-                        $winMultiplier = 2.00;
-                    }
+            $choice = strtolower(trim($bet['bet_choice'] ?? ''));
+            $userColor = !empty($bet['selected_colour']) ? strtolower(trim($bet['selected_colour'])) : null;
+            $userNumber = ($bet['selected_number'] !== null && $bet['selected_number'] !== '') ? (int)$bet['selected_number'] : null;
+
+            // Evaluate Number match (multiplier 9.0X)
+            $numberMatched = false;
+            if ($userNumber !== null && $userNumber === $resultNumber) {
+                $numberMatched = true;
+            } elseif ($userNumber === null && is_numeric($choice) && (int)$choice === $resultNumber) {
+                $numberMatched = true;
+            }
+
+            // Evaluate Color match (multiplier 2.0X for red/green, 4.5X for violet, 1.5X for 0/5 split)
+            $colorMatched = false;
+            $colorMultiplier = 0.0;
+
+            $checkColor = $userColor ?: ($choice === 'red' || $choice === 'green' || $choice === 'violet' ? $choice : null);
+            if ($checkColor !== null) {
+                if ($checkColor === 'violet' && ($resultColor === 'violet' || in_array($resultNumber, [0, 5], true))) {
+                    $colorMatched = true;
+                    $colorMultiplier = 4.50;
+                } elseif ($checkColor === 'green' && ($resultColor === 'green' || in_array($resultNumber, [1, 3, 7, 9], true))) {
+                    $colorMatched = true;
+                    $colorMultiplier = 2.00;
+                } elseif ($checkColor === 'green' && $resultNumber === 5) {
+                    $colorMatched = true;
+                    $colorMultiplier = 1.50;
+                } elseif ($checkColor === 'red' && ($resultColor === 'red' || in_array($resultNumber, [2, 4, 6, 8], true))) {
+                    $colorMatched = true;
+                    $colorMultiplier = 2.00;
+                } elseif ($checkColor === 'red' && $resultNumber === 0) {
+                    $colorMatched = true;
+                    $colorMultiplier = 1.50;
                 }
-            } else {
-                // Win-go rules
-                if (is_numeric($choice) && (int)$choice === $resultNumber) {
-                    $isWin = true;
-                    $winMultiplier = 9.00;
-                } elseif ($choice === 'green' && ($resultColor === 'green' || in_array($resultNumber, [1, 3, 7, 9], true))) {
-                    $isWin = true;
-                    $winMultiplier = 2.00;
-                } elseif ($choice === 'green' && $resultNumber === 5) {
-                    $isWin = true;
-                    $winMultiplier = 1.50;
-                } elseif ($choice === 'red' && ($resultColor === 'red' || in_array($resultNumber, [2, 4, 6, 8], true))) {
-                    $isWin = true;
-                    $winMultiplier = 2.00;
-                } elseif ($choice === 'red' && $resultNumber === 0) {
-                    $isWin = true;
-                    $winMultiplier = 1.50;
-                } elseif ($choice === 'violet' && ($resultColor === 'violet' || in_array($resultNumber, [0, 5], true))) {
-                    $isWin = true;
-                    $winMultiplier = 4.50;
-                }
+            }
+
+            // Compute total multiplier
+            if ($numberMatched && $colorMatched) {
+                $isWin = true;
+                $winMultiplier = 9.00 + $colorMultiplier;
+            } elseif ($numberMatched) {
+                $isWin = true;
+                $winMultiplier = 9.00;
+            } elseif ($colorMatched) {
+                $isWin = true;
+                $winMultiplier = $colorMultiplier;
             }
 
             if ($isWin) {
                 $winAmount = round($betAmount * $winMultiplier, 2);
                 $totalPayout += $winAmount;
 
-                // Update Bet status to won
-                $upBet = $pdo->prepare("UPDATE `game_bets` SET `status` = 'won', `win_amount` = :win WHERE `id` = :bid");
-                $upBet->execute([':win' => $winAmount, ':bid' => $bet['id']]);
+                // Update original bet record (NO DUPLICATE ROW)
+                $upBet = $pdo->prepare("
+                    UPDATE `game_bets` 
+                    SET `status` = 'won', `win_amount` = :win, `multiplier` = :mult, `updated_at` = NOW() 
+                    WHERE `id` = :bid
+                ");
+                $upBet->execute([
+                    ':win' => $winAmount,
+                    ':mult' => $winMultiplier,
+                    ':bid' => $bet['id']
+                ]);
 
                 // Update User Wallet Atomically
                 $upWallet = $pdo->prepare("UPDATE `wallets` SET `balance` = `balance` + :win WHERE `user_id` = :uid");
@@ -200,22 +226,16 @@ function finalizeRoundAndCreateNext(PDO $pdo, int $roundId, string $gameSlug, ?s
                     ':before' => $afterBalance - $winAmount,
                     ':after' => $afterBalance,
                     ':ref' => 'WIN-' . $round['round_number'] . '-' . $bet['id'],
-                    ':notes' => 'Colour Game Round #' . $round['round_number'] . ' Won Choice: ' . strtoupper($choice)
-                ]);
-
-                // Add Notification
-                $notifStmt = $pdo->prepare("
-                    INSERT INTO `notifications` (`user_id`, `title`, `message`, `type`)
-                    VALUES (:uid, 'Round Won!', :msg, 'win')
-                ");
-                $notifStmt->execute([
-                    ':uid' => $bet['user_id'],
-                    ':msg' => 'Round #' . $round['round_number'] . ' Result: ' . strtoupper($resultColor) . '. You won ₹' . number_format($winAmount, 2) . '!'
+                    ':notes' => 'Colour Game Round #' . $round['round_number'] . ' Won Result: ' . strtoupper($resultColor) . ' ' . $resultNumber
                 ]);
 
             } else {
-                // Update Bet as lost
-                $upBet = $pdo->prepare("UPDATE `game_bets` SET `status` = 'lost', `win_amount` = 0.00 WHERE `id` = :bid");
+                // Update original bet record as lost (NO DUPLICATE ROW)
+                $upBet = $pdo->prepare("
+                    UPDATE `game_bets` 
+                    SET `status` = 'lost', `win_amount` = 0.00, `updated_at` = NOW() 
+                    WHERE `id` = :bid
+                ");
                 $upBet->execute([':bid' => $bet['id']]);
             }
         }
@@ -273,48 +293,77 @@ function finalizeRoundAndCreateNext(PDO $pdo, int $roundId, string $gameSlug, ?s
 }
 
 /**
- * Get live betting statistics for a round (used by Admin monitor).
+ * Get live betting statistics for a round (colours & numbers 0-9).
  */
 function getRoundLiveStats(PDO $pdo, int $roundId): array {
     $stats = [
         'total_players' => 0,
         'total_amount' => 0.00,
         'colors' => [
-            'red' => ['players' => 0, 'amount' => 0.00],
-            'green' => ['players' => 0, 'amount' => 0.00],
-            'violet' => ['players' => 0, 'amount' => 0.00]
-        ]
+            'red' => ['players' => 0, 'points' => 0.00],
+            'green' => ['players' => 0, 'points' => 0.00],
+            'violet' => ['players' => 0, 'points' => 0.00]
+        ],
+        'numbers' => []
     ];
 
-    $stmt = $pdo->prepare("
-        SELECT 
-            LOWER(bet_choice) as choice,
-            COUNT(DISTINCT user_id) as player_count,
-            COALESCE(SUM(amount), 0) as total_amount
-        FROM `game_bets`
-        WHERE `round_id` = :rid
-        GROUP BY LOWER(bet_choice)
-    ");
-    $stmt->execute([':rid' => $roundId]);
-    $rows = $stmt->fetchAll();
-
-    foreach ($rows as $r) {
-        $c = $r['choice'];
-        $pCount = (int)$r['player_count'];
-        $amt = (float)$r['total_amount'];
-
-        if (isset($stats['colors'][$c])) {
-            $stats['colors'][$c]['players'] = $pCount;
-            $stats['colors'][$c]['amount'] = $amt;
-        }
-
-        $stats['total_amount'] += $amt;
+    for ($i = 0; $i <= 9; $i++) {
+        $stats['numbers'][$i] = ['players' => 0, 'points' => 0.00];
     }
 
-    // Total distinct players across all colors
-    $pStmt = $pdo->prepare("SELECT COUNT(DISTINCT user_id) FROM `game_bets` WHERE `round_id` = :rid");
-    $pStmt->execute([':rid' => $roundId]);
-    $stats['total_players'] = (int)$pStmt->fetchColumn();
+    // Fetch all bets on this round
+    $stmt = $pdo->prepare("
+        SELECT user_id, amount, bet_choice, selected_colour, selected_number
+        FROM `game_bets`
+        WHERE `round_id` = :rid
+    ");
+    $stmt->execute([':rid' => $roundId]);
+    $bets = $stmt->fetchAll();
+
+    $distinctUsers = [];
+    $colorUsers = ['red' => [], 'green' => [], 'violet' => []];
+    $numberUsers = array_fill(0, 10, []);
+
+    foreach ($bets as $b) {
+        $uid = (int)$b['user_id'];
+        $amt = (float)$b['amount'];
+        $distinctUsers[$uid] = true;
+        $stats['total_amount'] += $amt;
+
+        // Color attribution
+        $col = !empty($b['selected_colour']) ? strtolower($b['selected_colour']) : null;
+        if (!$col && in_array(strtolower($b['bet_choice']), ['red', 'green', 'violet'], true)) {
+            $col = strtolower($b['bet_choice']);
+        }
+
+        if ($col && isset($stats['colors'][$col])) {
+            $stats['colors'][$col]['points'] += $amt;
+            $colorUsers[$col][$uid] = true;
+        }
+
+        // Number attribution
+        $num = null;
+        if ($b['selected_number'] !== null && $b['selected_number'] !== '') {
+            $num = (int)$b['selected_number'];
+        } elseif (is_numeric($b['bet_choice'])) {
+            $num = (int)$b['bet_choice'];
+        }
+
+        if ($num !== null && $num >= 0 && $num <= 9) {
+            $stats['numbers'][$num]['points'] += $amt;
+            $numberUsers[$num][$uid] = true;
+        }
+    }
+
+    $stats['total_players'] = count($distinctUsers);
+
+    foreach (['red', 'green', 'violet'] as $c) {
+        $stats['colors'][$c]['players'] = count($colorUsers[$c]);
+    }
+
+    for ($i = 0; $i <= 9; $i++) {
+        $stats['numbers'][$i]['players'] = count($numberUsers[$i]);
+    }
 
     return $stats;
 }
@@ -322,23 +371,24 @@ function getRoundLiveStats(PDO $pdo, int $roundId): array {
 /**
  * Set manual result for a round (Admin control).
  */
-function setRoundManualResult(PDO $pdo, int $roundId, string $color, int $adminId): bool {
+function setRoundManualResult(PDO $pdo, int $roundId, ?string $color, ?int $number, int $adminId): bool {
     $validColors = ['red', 'green', 'violet'];
-    if (!in_array(strtolower($color), $validColors, true)) {
-        return false;
-    }
+    $cleanColor = (!empty($color) && in_array(strtolower($color), $validColors, true)) ? strtolower($color) : null;
+    $cleanNumber = ($number !== null && $number >= 0 && $number <= 9) ? (int)$number : null;
 
     $stmt = $pdo->prepare("
         UPDATE `game_rounds`
         SET `result_mode` = 'manual',
             `manual_result` = :color,
+            `manual_number` = :num,
             `result_status` = 'locked',
             `manually_set_at` = NOW(),
             `manually_set_by` = :admin
         WHERE `id` = :rid AND `status` = 'active'
     ");
     return $stmt->execute([
-        ':color' => strtolower($color),
+        ':color' => $cleanColor,
+        ':num' => $cleanNumber,
         ':admin' => $adminId,
         ':rid' => $roundId
     ]);

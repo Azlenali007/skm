@@ -1,11 +1,11 @@
 <?php
 /**
  * Sikkim Gaming Platform - Admin Colour Game Controls & Live Monitor
- * Real-time AJAX polling, Live Player & Amount breakdown per color,
+ * Real-time AJAX polling, Live Player & Points breakdown per colour and numbers 0-9,
  * Manual vs Automatic Mode Switcher, and Instant Result Publishing.
  */
 require_once __DIR__ . '/includes/admin_header.php';
-require_once __DIR__ . '/../../includes/round_engine.php';
+require_once __DIR__ . '/../includes/round_engine.php';
 
 $pdo = getDB();
 $gameSlug = 'colour-game';
@@ -87,7 +87,7 @@ $pageTitle = "Colour Game Management";
                 </span>
             </div>
 
-            <!-- Mode Selector (Radio / Buttons) -->
+            <!-- Mode Selector (Radio Buttons) -->
             <div class="space-y-2 mb-3">
                 <label class="flex items-center gap-2.5 p-2 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition">
                     <input type="radio" name="result_mode" value="auto" id="modeRadioAuto" onchange="toggleMode('auto')" <?= ($activeRound['result_mode'] ?? 'auto') === 'auto' ? 'checked' : '' ?> class="w-4 h-4 text-blue-600">
@@ -118,44 +118,56 @@ $pageTitle = "Colour Game Management";
     <!-- 3. Manual Result Setter & Instant Publish Card -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
         <div>
-            <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">SET MANUAL RESULT</span>
-            <p class="text-xs text-slate-500 mb-3">Lock outcome in MySQL. Manual results take strict priority over automatic generation.</p>
+            <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">SET MANUAL OUTCOME</span>
+            <p class="text-xs text-slate-500 mb-2">Select Colour and/or Number 0-9. Takes strict priority over automatic processing.</p>
 
             <!-- 3 Color Setter Buttons -->
-            <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="grid grid-cols-3 gap-1.5 mb-2">
                 <button type="button" 
-                        onclick="setManualResult('red')"
+                        onclick="setManualChoice('red', null)"
                         id="adminBtnRed"
-                        class="p-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black text-xs uppercase shadow-xs transition active:scale-95 border-2 border-transparent">
+                        class="p-2 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black text-xs uppercase shadow-xs transition active:scale-95 border-2 border-transparent">
                     RED
                 </button>
                 <button type="button" 
-                        onclick="setManualResult('green')"
+                        onclick="setManualChoice('green', null)"
                         id="adminBtnGreen"
-                        class="p-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs uppercase shadow-xs transition active:scale-95 border-2 border-transparent">
+                        class="p-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs uppercase shadow-xs transition active:scale-95 border-2 border-transparent">
                     GREEN
                 </button>
                 <button type="button" 
-                        onclick="setManualResult('violet')"
+                        onclick="setManualChoice('violet', null)"
                         id="adminBtnViolet"
-                        class="p-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase shadow-xs transition active:scale-95 border-2 border-transparent">
+                        class="p-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase shadow-xs transition active:scale-95 border-2 border-transparent">
                     VIOLET
                 </button>
             </div>
+
+            <!-- Numbers 0-9 Setter Buttons -->
+            <div class="grid grid-cols-5 gap-1 mb-3">
+                <?php for ($n = 0; $n <= 9; $n++): ?>
+                    <button type="button"
+                            onclick="setManualChoice(null, <?= $n ?>)"
+                            id="adminBtnNum<?= $n ?>"
+                            class="py-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-700 font-mono font-bold text-xs border border-slate-200 transition">
+                        <?= $n ?>
+                    </button>
+                <?php endfor; ?>
+            </div>
         </div>
 
-        <div class="pt-3 border-t border-slate-100">
+        <div class="pt-2 border-t border-slate-100">
             <button type="button" 
                     onclick="publishResultNow()"
                     id="btnPublishNow"
-                    class="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5">
+                    class="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer">
                 <span>⚡ Publish Result Immediately</span>
             </button>
         </div>
     </div>
 </div>
 
-<!-- LIVE ADMIN ROUND MONITOR (Matches exact requested wireframe) -->
+<!-- LIVE ADMIN ROUND MONITOR (Colours & Numbers 0-9) -->
 <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-2">
         <div class="flex items-center gap-2">
@@ -167,12 +179,12 @@ $pageTitle = "Colour Game Management";
         <div class="flex items-center gap-3 text-xs">
             <span class="text-slate-400">Total Players: <strong id="monitorTotalPlayers" class="text-slate-800">0</strong></span>
             <span class="text-slate-300">|</span>
-            <span class="text-slate-400">Total Volume: <strong id="monitorTotalAmount" class="text-blue-600">₹0.00</strong></span>
+            <span class="text-slate-400">Total Points: <strong id="monitorTotalAmount" class="text-blue-600">0.00</strong></span>
         </div>
     </div>
 
-    <!-- Live Color breakdown Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <!-- Live Colour Breakdown Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <!-- RED MONITOR CARD -->
         <div class="p-4 rounded-xl border border-red-200 bg-red-50/50 flex flex-col justify-between">
             <div class="flex items-center justify-between mb-2">
@@ -185,8 +197,8 @@ $pageTitle = "Colour Game Management";
                     <span id="statRedPlayers" class="font-bold text-slate-800 font-mono">0</span>
                 </div>
                 <div class="flex justify-between text-xs">
-                    <span class="text-slate-500">Amount:</span>
-                    <span id="statRedAmount" class="font-black text-red-600 font-mono">₹0.00</span>
+                    <span class="text-slate-500">Points:</span>
+                    <span id="statRedAmount" class="font-black text-red-600 font-mono">0.00</span>
                 </div>
             </div>
         </div>
@@ -203,8 +215,8 @@ $pageTitle = "Colour Game Management";
                     <span id="statGreenPlayers" class="font-bold text-slate-800 font-mono">0</span>
                 </div>
                 <div class="flex justify-between text-xs">
-                    <span class="text-slate-500">Amount:</span>
-                    <span id="statGreenAmount" class="font-black text-emerald-600 font-mono">₹0.00</span>
+                    <span class="text-slate-500">Points:</span>
+                    <span id="statGreenAmount" class="font-black text-emerald-600 font-mono">0.00</span>
                 </div>
             </div>
         </div>
@@ -221,10 +233,34 @@ $pageTitle = "Colour Game Management";
                     <span id="statVioletPlayers" class="font-bold text-slate-800 font-mono">0</span>
                 </div>
                 <div class="flex justify-between text-xs">
-                    <span class="text-slate-500">Amount:</span>
-                    <span id="statVioletAmount" class="font-black text-purple-600 font-mono">₹0.00</span>
+                    <span class="text-slate-500">Points:</span>
+                    <span id="statVioletAmount" class="font-black text-purple-600 font-mono">0.00</span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Live Numbers 0-9 Breakdown Grid -->
+    <div class="pt-4 border-t border-slate-100">
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-700 mb-3 flex items-center justify-between">
+            <span>NUMBERS (0 – 9) LIVE DATA</span>
+            <span class="text-[10px] text-slate-400 font-normal">Real MySQL Submissions</span>
+        </h3>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+            <?php for ($num = 0; $num <= 9; $num++): ?>
+                <div class="p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100/80 transition flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-blue-600 text-white font-mono font-black text-xs flex items-center justify-center">
+                            <?= $num ?>
+                        </span>
+                        <div class="text-[11px] leading-tight">
+                            <span class="text-slate-500 text-[10px] block">Players: <strong id="numPlayers<?= $num ?>" class="text-slate-800">0</strong></span>
+                            <span class="text-slate-500 text-[10px] block">Points: <strong id="numPoints<?= $num ?>" class="text-blue-600">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+            <?php endfor; ?>
         </div>
     </div>
 </div>
@@ -244,13 +280,12 @@ $pageTitle = "Colour Game Management";
                     <th class="py-3 px-4">Mode</th>
                     <th class="py-3 px-4">Manual Config</th>
                     <th class="py-3 px-4">Published Result</th>
-                    <th class="py-3 px-4 text-right">Total Bets</th>
+                    <th class="py-3 px-4 text-right">Total Points</th>
                     <th class="py-3 px-4 text-right">Total Payout</th>
                     <th class="py-3 px-4">Settled At</th>
                 </tr>
             </thead>
             <tbody id="auditTableBody" class="divide-y divide-slate-100">
-                <!-- Dynamically populated via AJAX -->
                 <tr><td colspan="7" class="py-4 text-center text-slate-400">Loading round records...</td></tr>
             </tbody>
         </table>
@@ -263,7 +298,8 @@ $pageTitle = "Colour Game Management";
     let activeRoundNumber = <?= (int)$activeRound['round_number'] ?>;
     let remainingSeconds = <?= (int)$remaining ?>;
     let currentMode = '<?= e($activeRound['result_mode'] ?? 'auto') ?>';
-    let currentManualResult = '<?= e($activeRound['manual_result'] ?? '') ?>';
+    let currentManualColor = '<?= e($activeRound['manual_result'] ?? '') ?>';
+    let currentManualNumber = <?= ($activeRound['manual_number'] !== null) ? (int)$activeRound['manual_number'] : 'null' ?>;
     let timerInterval = null;
     let pollInterval = null;
 
@@ -276,7 +312,6 @@ $pageTitle = "Colour Game Management";
         box.classList.remove('hidden');
     }
 
-    // Toggle Mode: Auto vs Manual
     function toggleMode(mode) {
         const fd = new FormData();
         fd.append('action', 'set_mode');
@@ -295,12 +330,15 @@ $pageTitle = "Colour Game Management";
         });
     }
 
-    // Set Manual Result Choice
-    function setManualResult(color) {
+    function setManualChoice(color, number) {
+        if (color) currentManualColor = color;
+        if (number !== null) currentManualNumber = number;
+
         const fd = new FormData();
         fd.append('action', 'set_manual_result');
         fd.append('round_id', activeRoundId);
-        fd.append('result_color', color);
+        if (currentManualColor) fd.append('result_color', currentManualColor);
+        if (currentManualNumber !== null) fd.append('result_number', currentManualNumber);
 
         fetch('/api/admin_colour_game.php', { method: 'POST', body: fd })
         .then(res => res.json())
@@ -314,10 +352,11 @@ $pageTitle = "Colour Game Management";
         });
     }
 
-    // Publish Result Now
     function publishResultNow() {
-        let color = currentManualResult || 'red';
-        if (!confirm('Immediately publish result [' + color.toUpperCase() + '] for Round #' + activeRoundNumber + ' and start next round?')) {
+        let color = currentManualColor || 'red';
+        let number = currentManualNumber !== null ? currentManualNumber : 7;
+
+        if (!confirm('Immediately publish outcome [' + color.toUpperCase() + ', Number ' + number + '] for Round #' + activeRoundNumber + '?')) {
             return;
         }
 
@@ -325,6 +364,7 @@ $pageTitle = "Colour Game Management";
         fd.append('action', 'publish_now');
         fd.append('round_id', activeRoundId);
         fd.append('result_color', color);
+        fd.append('result_number', number);
 
         fetch('/api/admin_colour_game.php', { method: 'POST', body: fd })
         .then(res => res.json())
@@ -338,20 +378,19 @@ $pageTitle = "Colour Game Management";
         });
     }
 
-    // Live AJAX State Polling
     function fetchAdminState() {
         fetch('/api/admin_colour_game.php')
         .then(res => res.json())
         .then(data => {
             if (!data.success) return;
 
-            // Update Active Round
             if (data.round) {
                 activeRoundId = data.round.id;
                 activeRoundNumber = data.round.round_number;
                 remainingSeconds = data.round.remaining_seconds;
                 currentMode = data.round.result_mode;
-                currentManualResult = data.round.manual_result || '';
+                currentManualColor = data.round.manual_result || '';
+                currentManualNumber = data.round.manual_number !== null ? data.round.manual_number : null;
 
                 document.getElementById('displayRoundNumber').textContent = '#' + activeRoundNumber;
                 document.getElementById('monitorRoundNumber').textContent = 'ROUND ' + activeRoundNumber;
@@ -363,43 +402,69 @@ $pageTitle = "Colour Game Management";
                     document.getElementById('modeRadioAuto').checked = true;
                 }
 
+                // Display manual outcome label
                 const manualEl = document.getElementById('displayManualChoice');
-                if (currentManualResult) {
-                    manualEl.textContent = currentManualResult.toUpperCase();
+                let manualDesc = [];
+                if (currentManualColor) manualDesc.push(currentManualColor.toUpperCase());
+                if (currentManualNumber !== null) manualDesc.push('Num ' + currentManualNumber);
+
+                if (manualDesc.length > 0) {
+                    manualEl.textContent = manualDesc.join(', ');
                     manualEl.className = 'font-black uppercase px-2 py-0.5 rounded-md text-[11px] bg-purple-100 text-purple-800';
                 } else {
                     manualEl.textContent = 'None';
                     manualEl.className = 'font-black uppercase px-2 py-0.5 rounded-md text-[11px] bg-slate-100 text-slate-500';
                 }
 
-                // Highlight active manual button
+                // Highlight active manual color button
                 ['red', 'green', 'violet'].forEach(c => {
                     const btn = document.getElementById('adminBtn' + c.charAt(0).toUpperCase() + c.slice(1));
                     if (btn) {
-                        if (c === currentManualResult) {
+                        if (c === currentManualColor) {
                             btn.classList.add('ring-4', 'ring-offset-2', 'ring-slate-900', 'scale-105');
                         } else {
                             btn.classList.remove('ring-4', 'ring-offset-2', 'ring-slate-900', 'scale-105');
                         }
                     }
                 });
+
+                // Highlight active manual number button
+                for (let n = 0; n <= 9; n++) {
+                    const btn = document.getElementById('adminBtnNum' + n);
+                    if (btn) {
+                        if (n === currentManualNumber) {
+                            btn.className = 'py-1 rounded-lg bg-blue-600 text-white font-mono font-bold text-xs ring-2 ring-slate-900 scale-105 transition';
+                        } else {
+                            btn.className = 'py-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-800 hover:text-blue-700 font-mono font-bold text-xs border border-slate-200 transition';
+                        }
+                    }
+                }
             }
 
             // Update Live Stats
             if (data.live_stats) {
                 const s = data.live_stats;
                 document.getElementById('monitorTotalPlayers').textContent = s.total_players;
-                document.getElementById('monitorTotalAmount').textContent = '₹' + parseFloat(s.total_amount).toFixed(2);
+                document.getElementById('monitorTotalAmount').textContent = parseFloat(s.total_amount).toFixed(2);
 
                 if (s.colors) {
                     document.getElementById('statRedPlayers').textContent = s.colors.red.players;
-                    document.getElementById('statRedAmount').textContent = '₹' + parseFloat(s.colors.red.amount).toFixed(2);
+                    document.getElementById('statRedAmount').textContent = parseFloat(s.colors.red.points).toFixed(2);
 
                     document.getElementById('statGreenPlayers').textContent = s.colors.green.players;
-                    document.getElementById('statGreenAmount').textContent = '₹' + parseFloat(s.colors.green.amount).toFixed(2);
+                    document.getElementById('statGreenAmount').textContent = parseFloat(s.colors.green.points).toFixed(2);
 
                     document.getElementById('statVioletPlayers').textContent = s.colors.violet.players;
-                    document.getElementById('statVioletAmount').textContent = '₹' + parseFloat(s.colors.violet.amount).toFixed(2);
+                    document.getElementById('statVioletAmount').textContent = parseFloat(s.colors.violet.points).toFixed(2);
+                }
+
+                if (s.numbers) {
+                    for (let n = 0; n <= 9; n++) {
+                        const elP = document.getElementById('numPlayers' + n);
+                        const elA = document.getElementById('numPoints' + n);
+                        if (elP && s.numbers[n]) elP.textContent = s.numbers[n].players;
+                        if (elA && s.numbers[n]) elA.textContent = parseFloat(s.numbers[n].points).toFixed(0);
+                    }
                 }
             }
 
@@ -422,10 +487,20 @@ $pageTitle = "Colour Game Management";
         rounds.forEach(r => {
             const isCompleted = (r.status === 'completed');
             const color = (r.result_color || '').toLowerCase();
+            const num = r.result_number !== null ? r.result_number : '--';
+
             let colorBadge = '<span class="text-slate-400">Pending</span>';
-            if (color === 'red') colorBadge = '<span class="bg-red-500 text-white font-black px-2 py-0.5 rounded text-[10px]">RED</span>';
-            if (color === 'green') colorBadge = '<span class="bg-emerald-500 text-white font-black px-2 py-0.5 rounded text-[10px]">GREEN</span>';
-            if (color === 'violet') colorBadge = '<span class="bg-purple-600 text-white font-black px-2 py-0.5 rounded text-[10px]">VIOLET</span>';
+            if (color === 'red') colorBadge = '<span class="bg-red-500 text-white font-black px-2 py-0.5 rounded text-[10px]">RED • ' + num + '</span>';
+            if (color === 'green') colorBadge = '<span class="bg-emerald-500 text-white font-black px-2 py-0.5 rounded text-[10px]">GREEN • ' + num + '</span>';
+            if (color === 'violet') colorBadge = '<span class="bg-purple-600 text-white font-black px-2 py-0.5 rounded text-[10px]">VIOLET • ' + num + '</span>';
+
+            let manualSummary = '-';
+            if (r.manual_result || r.manual_number !== null) {
+                let parts = [];
+                if (r.manual_result) parts.push(r.manual_result.toUpperCase());
+                if (r.manual_number !== null) parts.push('Num ' + r.manual_number);
+                manualSummary = '<span class="text-purple-700 font-bold">' + parts.join(', ') + '</span>';
+            }
 
             html += `
                 <tr class="hover:bg-slate-50 transition">
@@ -435,12 +510,10 @@ $pageTitle = "Colour Game Management";
                             ${(r.result_mode || 'auto').toUpperCase()}
                         </span>
                     </td>
-                    <td class="py-3 px-4 text-slate-600 font-bold uppercase">
-                        ${r.manual_result ? '<span class="text-purple-700">' + r.manual_result + '</span>' : '<span class="text-slate-400">-</span>'}
-                    </td>
+                    <td class="py-3 px-4 text-slate-600 font-bold uppercase">${manualSummary}</td>
                     <td class="py-3 px-4">${colorBadge}</td>
-                    <td class="py-3 px-4 text-right font-mono font-bold text-slate-700">₹${parseFloat(r.total_bets_amount || 0).toFixed(2)}</td>
-                    <td class="py-3 px-4 text-right font-mono font-bold text-emerald-600">₹${parseFloat(r.total_payout_amount || 0).toFixed(2)}</td>
+                    <td class="py-3 px-4 text-right font-mono font-bold text-slate-700">${parseFloat(r.total_bets_amount || 0).toFixed(2)}</td>
+                    <td class="py-3 px-4 text-right font-mono font-bold text-emerald-600">${parseFloat(r.total_payout_amount || 0).toFixed(2)}</td>
                     <td class="py-3 px-4 text-slate-400 text-[11px] font-mono">${r.completed_at || r.created_at || '--'}</td>
                 </tr>
             `;

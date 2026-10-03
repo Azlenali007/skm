@@ -1,7 +1,8 @@
 <?php
 /**
- * Sikkim Gaming Platform - Place Colour Game Bet API
+ * Sikkim Gaming Platform - Place Colour & Number Game Bet API
  * Fully Server-Side Validated with Atomic MySQL Transactions.
+ * Supports Colour (Red, Green, Violet) and Number (0-9) selections.
  */
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../config/database.php';
@@ -16,39 +17,82 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 if (!isLoggedIn()) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Please sign in to place your bet.']);
+    echo json_encode(['success' => false, 'message' => 'Please sign in to place your entry.']);
     exit;
 }
 
 $userId = (int)$_SESSION['user_id'];
-$choice = strtolower(trim($_POST['choice'] ?? ''));
-$amount = (float)($_POST['amount'] ?? 0);
+$rawColour = strtolower(trim($_POST['colour'] ?? $_POST['choice'] ?? ''));
+$rawNumber = isset($_POST['number']) && $_POST['number'] !== '' ? trim($_POST['number']) : null;
+$amount = (float)($_POST['points'] ?? $_POST['amount'] ?? 0);
 
-// Validate colour option
-$validColors = ['red', 'green', 'violet'];
-if (!in_array($choice, $validColors, true)) {
+// Validate colour if provided
+$selectedColour = null;
+if (!empty($rawColour)) {
+    if (in_array($rawColour, ['red', 'green', 'violet'], true)) {
+        $selectedColour = $rawColour;
+    } elseif (is_numeric($rawColour) && $rawNumber === null) {
+        $rawNumber = $rawColour;
+    } else {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid colour selected. Choose Red, Green, or Violet.']);
+        exit;
+    }
+}
+
+// Validate number if provided
+$selectedNumber = null;
+if ($rawNumber !== null && $rawNumber !== '') {
+    if (is_numeric($rawNumber) && (int)$rawNumber >= 0 && (int)$rawNumber <= 9) {
+        $selectedNumber = (int)$rawNumber;
+    } else {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid number. Must be between 0 and 9.']);
+        exit;
+    }
+}
+
+// Ensure at least one selection is made
+if ($selectedColour === null && $selectedNumber === null) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Invalid colour selected. Choose Red, Green, or Violet.']);
+    echo json_encode(['success' => false, 'message' => 'Please select a Colour (Red, Green, Violet) or Number (0–9).']);
     exit;
 }
 
-// Validate amount
+// Validate amount/points
 if ($amount < 10) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Minimum bet amount is ₹10.00.']);
+    echo json_encode(['success' => false, 'message' => 'Minimum entry points is 10.']);
     exit;
 }
 if ($amount > 50000) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Maximum bet amount per selection is ₹50,000.00.']);
+    echo json_encode(['success' => false, 'message' => 'Maximum entry points per round is 50,000.']);
     exit;
 }
 
 $pdo = getDB();
 $gameSlug = 'colour-game';
 
-// Multipliers
-$multiplier = ($choice === 'violet') ? 4.50 : 2.00;
+// Compute multiplier display
+$multiplier = 2.00;
+if ($selectedNumber !== null && $selectedColour !== null) {
+    $multiplier = 9.00 + ($selectedColour === 'violet' ? 4.50 : 2.00);
+} elseif ($selectedNumber !== null) {
+    $multiplier = 9.00;
+} elseif ($selectedColour === 'violet') {
+    $multiplier = 4.50;
+}
+
+// Primary choice label
+$choiceLabel = '';
+if ($selectedColour && $selectedNumber !== null) {
+    $choiceLabel = strtoupper($selectedColour) . '-' . $selectedNumber;
+} elseif ($selectedColour) {
+    $choiceLabel = strtoupper($selectedColour);
+} else {
+    $choiceLabel = 'NUM-' . $selectedNumber;
+}
 
 try {
     $pdo->beginTransaction();
@@ -87,26 +131,29 @@ try {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'Insufficient wallet balance. You have ₹' . number_format($currentBalance, 2) . ', but need ₹' . number_format($amount, 2) . '.'
+            'message' => 'Insufficient points balance. You have ' . number_format($currentBalance, 2) . ' points, but need ' . number_format($amount, 2) . '.'
         ]);
         exit;
     }
 
-    // 3. Deduct amount from wallet
+    // 3. Deduct points from wallet
     $newBalance = $currentBalance - $amount;
     $upWallet = $pdo->prepare("UPDATE `wallets` SET `balance` = :new_bal WHERE `user_id` = :uid");
     $upWallet->execute([':new_bal' => $newBalance, ':uid' => $userId]);
 
-    // 4. Record Bet in game_bets
+    // 4. Record Bet in game_bets with status = 'pending'
     $betStmt = $pdo->prepare("
-        INSERT INTO `game_bets` (`user_id`, `round_id`, `bet_choice`, `amount`, `multiplier`, `status`)
-        VALUES (:uid, :rid, :choice, :amount, :mult, 'pending')
+        INSERT INTO `game_bets` (`user_id`, `round_id`, `bet_choice`, `selected_colour`, `selected_number`, `amount`, `points`, `multiplier`, `status`)
+        VALUES (:uid, :rid, :choice, :col, :num, :amount, :pts, :mult, 'pending')
     ");
     $betStmt->execute([
         ':uid' => $userId,
         ':rid' => $round['id'],
-        ':choice' => $choice,
+        ':choice' => $choiceLabel,
+        ':col' => $selectedColour,
+        ':num' => $selectedNumber,
         ':amount' => $amount,
+        ':pts' => $amount,
         ':mult' => $multiplier
     ]);
     $betId = (int)$pdo->lastInsertId();
@@ -126,21 +173,23 @@ try {
         ':before' => $currentBalance,
         ':after' => $newBalance,
         ':ref' => 'BET-' . $round['round_number'] . '-' . $betId,
-        ':notes' => 'Colour Game Round #' . $round['round_number'] . ' Bet: ' . strtoupper($choice)
+        ':notes' => 'Colour Game Round #' . $round['round_number'] . ' Entry: ' . $choiceLabel
     ]);
 
     $pdo->commit();
 
     echo json_encode([
         'success' => true,
-        'message' => 'Bet of ₹' . number_format($amount, 2) . ' on [' . strtoupper($choice) . '] placed successfully!',
+        'message' => 'Entry of ' . number_format($amount, 2) . ' points on [' . $choiceLabel . '] placed successfully!',
         'new_balance' => $newBalance,
-        'bet' => [
+        'entry' => [
             'id' => $betId,
-            'choice' => $choice,
-            'amount' => $amount,
+            'round_number' => (int)$round['round_number'],
+            'selected_colour' => $selectedColour ? strtoupper($selectedColour) : null,
+            'selected_number' => $selectedNumber,
+            'points' => $amount,
             'multiplier' => $multiplier,
-            'round_number' => (int)$round['round_number']
+            'status' => 'pending'
         ]
     ]);
 
